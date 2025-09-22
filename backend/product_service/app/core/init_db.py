@@ -1,8 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.core.config import settings
-from app.models.category import Base as CategoryBase
-from app.models.product import Base as ProductBase
 import asyncio
 
 # Create async engine
@@ -19,10 +17,14 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def init_db():
     """Initialize the database tables"""
-    # For SQLite, we need to create all tables
+    # Import models after engine creation to avoid circular imports
+    from app.core.database import Base
+    
+    # Create all tables with proper dependency order
     async with engine.begin() as conn:
-        await conn.run_sync(CategoryBase.metadata.create_all)
-        await conn.run_sync(ProductBase.metadata.create_all)
+        # Import all models to ensure they are registered
+        from app.models import category, product
+        await conn.run_sync(Base.metadata.create_all)
 
 async def get_db():
     """Dependency to get DB session"""

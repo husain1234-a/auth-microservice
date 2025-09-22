@@ -12,6 +12,7 @@ class ProductBase(BaseModel):
     category_id: int
     stock_quantity: int = 0
     unit: Optional[str] = None
+    image_url: Optional[str] = None
 
 class ProductCreate(ProductBase):
     image: Optional[UploadFile] = None
@@ -26,6 +27,7 @@ class ProductUpdate(BaseModel):
     stock_quantity: Optional[int] = None
     unit: Optional[str] = None
     is_active: Optional[bool] = None
+    image_url: Optional[str] = None
 
 class ProductResponse(ProductBase):
     id: int

@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, ForeignKey, func, CheckConstraint
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
-Base = declarative_base()
+# Use a shared Base class
+from app.core.database import Base
 
 class Product(Base):
     __tablename__ = "products"

@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
-Base = declarative_base()
+# Use a shared Base class
+from app.core.database import Base
 
 class Category(Base):
     __tablename__ = "categories"

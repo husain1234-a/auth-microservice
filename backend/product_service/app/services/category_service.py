@@ -22,10 +22,9 @@ class CategoryService:
     @staticmethod
     async def create_category(db: AsyncSession, category: CategoryCreate) -> Category:
         """Create new category"""
-        db_category = Category(
-            name=category.name
-            # image_url will be set after image upload
-        )
+        # Create a dictionary with the category data
+        category_data = category.model_dump(exclude_unset=True)
+        db_category = Category(**category_data)
         db.add(db_category)
         await db.commit()
         await db.refresh(db_category)

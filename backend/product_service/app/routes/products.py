@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
@@ -30,13 +30,13 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=ProductResponse)
 async def create_product(
-    name: str,
-    description: Optional[str] = None,
-    price: Optional[float] = None,
-    mrp: Optional[float] = None,
-    category_id: Optional[int] = None,
-    stock_quantity: int = 0,
-    unit: Optional[str] = None,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    price: float = Form(...),
+    mrp: Optional[float] = Form(None),
+    category_id: int = Form(...),
+    stock_quantity: int = Form(0),
+    unit: Optional[str] = Form(None),
     image: UploadFile = File(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -47,19 +47,30 @@ async def create_product(
     # Create a dictionary with only the provided values
     product_data = {
         "name": name,
+        "price": price,
+        "category_id": category_id,
         "stock_quantity": stock_quantity
     }
     
     if description is not None:
         product_data["description"] = description
-    if price is not None:
-        product_data["price"] = price
     if mrp is not None:
         product_data["mrp"] = mrp
-    if category_id is not None:
-        product_data["category_id"] = category_id
     if unit is not None:
         product_data["unit"] = unit
+        
+    # Handle image upload if provided
+    image_url = None
+    if image and image.filename:
+        from app.utils.image_service import ImageService
+        image_service = ImageService()
+        try:
+            image_url = await image_service.upload_image(image, "products")
+            product_data["image_url"] = image_url
+        except Exception as e:
+            # If image upload fails, we can either raise an error or continue without image
+            # For now, we'll continue without the image
+            pass
         
     product_create = ProductCreate(**product_data)
     product = await ProductService.create_product(db, product_create)
@@ -68,14 +79,14 @@ async def create_product(
 @router.put("/{product_id}", response_model=ProductResponse)
 async def update_product(
     product_id: int,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    price: Optional[float] = None,
-    mrp: Optional[float] = None,
-    category_id: Optional[int] = None,
-    stock_quantity: Optional[int] = None,
-    unit: Optional[str] = None,
-    is_active: Optional[bool] = None,
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    price: Optional[float] = Form(None),
+    mrp: Optional[float] = Form(None),
+    category_id: Optional[int] = Form(None),
+    stock_quantity: Optional[int] = Form(None),
+    unit: Optional[str] = Form(None),
+    is_active: Optional[bool] = Form(None),
     image: UploadFile = File(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -101,6 +112,18 @@ async def update_product(
         update_data["unit"] = unit
     if is_active is not None:
         update_data["is_active"] = is_active
+        
+    # Handle image upload if provided
+    if image and image.filename:
+        from app.utils.image_service import ImageService
+        image_service = ImageService()
+        try:
+            image_url = await image_service.upload_image(image, "products")
+            update_data["image_url"] = image_url
+        except Exception as e:
+            # If image upload fails, we can either raise an error or continue without image
+            # For now, we'll continue without the image
+            pass
         
     product_update = ProductUpdate(**update_data)
     product = await ProductService.update_product(db, product_id, product_update)

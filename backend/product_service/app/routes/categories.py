@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
@@ -24,7 +24,7 @@ async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=CategoryResponse)
 async def create_category(
-    name: str,
+    name: str = Form(...),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -32,16 +32,33 @@ async def create_category(
     # In a real implementation, you would verify the admin token here
     # For now, we're just creating the category
     
-    category_create = CategoryCreate(name=name)
+    # Create category data
+    category_data = {
+        "name": name
+    }
+    
+    # Handle image upload if provided
+    if image and image.filename:
+        from app.utils.image_service import ImageService
+        image_service = ImageService()
+        try:
+            image_url = await image_service.upload_image(image, "categories")
+            category_data["image_url"] = image_url
+        except Exception as e:
+            # If image upload fails, we can either raise an error or continue without image
+            # For now, we'll continue without the image
+            pass
+        
+    category_create = CategoryCreate(**category_data)
     category = await CategoryService.create_category(db, category_create)
     return category
 
 @router.put("/{category_id}", response_model=CategoryResponse)
 async def update_category(
     category_id: int,
-    name: Optional[str] = None,
+    name: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
-    is_active: Optional[bool] = None,
+    is_active: Optional[bool] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """Update an existing product category (Admin only)"""
@@ -54,6 +71,18 @@ async def update_category(
         update_data["name"] = name
     if is_active is not None:
         update_data["is_active"] = is_active
+        
+    # Handle image upload if provided
+    if image and image.filename:
+        from app.utils.image_service import ImageService
+        image_service = ImageService()
+        try:
+            image_url = await image_service.upload_image(image, "categories")
+            update_data["image_url"] = image_url
+        except Exception as e:
+            # If image upload fails, we can either raise an error or continue without image
+            # For now, we'll continue without the image
+            pass
         
     category_update = CategoryUpdate(**update_data)
     category = await CategoryService.update_category(db, category_id, category_update)

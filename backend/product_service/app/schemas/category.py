@@ -7,11 +7,11 @@ class CategoryBase(BaseModel):
     name: str
 
 class CategoryCreate(CategoryBase):
-    image: Optional[UploadFile] = None
+    image_url: Optional[str] = None
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
-    image: Optional[UploadFile] = None
+    image_url: Optional[str] = None
     is_active: Optional[bool] = None
 
 class CategoryResponse(CategoryBase):
