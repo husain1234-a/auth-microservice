@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Auth Microservice',
-  description: 'Secure authentication with Firebase',
+  title: 'Product Management System',
+  description: 'Admin dashboard for product and category management',
 };
 
 export default function RootLayout({
@@ -13,7 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning={true}>{children}</body>
+      <body suppressHydrationWarning={true} className="min-h-screen bg-gray-50">
+        {children}
+      </body>
     </html>
   );
 }

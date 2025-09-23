@@ -71,7 +71,8 @@ export default function Home() {
           <details>
             <summary className="cursor-pointer font-semibold">Debug Info (Click to expand)</summary>
             <div className="mt-2 space-y-1">
-              <div>API URL: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}</div>
+              <div>Auth API URL: {process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8001'}</div>
+              <div>Product API URL: {process.env.NEXT_PUBLIC_PRODUCT_API_URL || 'http://localhost:8002'}</div>
               <div>Firebase Project: {process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'NOT SET'}</div>
               <div>Firebase API Key: {process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? 'SET' : 'NOT SET'}</div>
               <div>Auth Domain: {process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'NOT SET'}</div>

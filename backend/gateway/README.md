@@ -1,91 +1,192 @@
 # API Gateway
 
-This API Gateway serves as a single entry point for all client requests to the microservices. It routes requests to the appropriate backend services and handles cross-cutting concerns like CORS, authentication, and rate limiting.
+Modular API Gateway for microservices with advanced routing, performance optimizations, and reliability features.
+
+## Modular Architecture
+
+The gateway is organized into a modular structure for better maintainability and scalability:
+
+```
+gateway/
+├── app/                    # Main application package
+│   ├── __init__.py        # Package initializer
+│   ├── config.py          # Configuration settings
+│   ├── models.py          # Data models and structures
+│   ├── services.py        # Business logic and service integrations
+│   └── routing.py         # API routes and request handling
+├── main.py                # Application entry point
+├── requirements.txt       # Python dependencies
+└── Dockerfile            # Container configuration
+```
 
 ## Features
 
-- **Dynamic Service Routing**: Automatically routes requests to appropriate microservices based on path prefixes
-- **Service Discovery**: Configurable service endpoints with environment variables
-- **Health Monitoring**: Comprehensive health checks for all services
-- **Error Handling**: Proper error responses and timeouts
-- **CORS Handling**: Manages cross-origin resource sharing
-- **Load Balancing Ready**: Can be extended to support multiple instances of services
-- **Centralized Security**: Can be extended for authentication and authorization
+### Service Routing
+- Intelligent path-based routing to microservices
+- Support for multiple microservices (auth, product, etc.)
+- Dynamic service discovery through environment variables
+
+### Performance Optimizations
+- HTTP connection pooling for efficient resource usage
+- Asynchronous request handling
+- Request/response streaming for large payloads
+
+### Reliability & Resilience
+- Circuit breaker pattern to prevent cascade failures
+- Automatic service health monitoring
+- Graceful degradation during service outages
+
+### Security
+- Rate limiting to prevent abuse
+- Request filtering and validation
+- Secure header management
+
+### Monitoring & Observability
+- Detailed request logging
+- Performance metrics tracking
+- Health check endpoints
+- Gateway statistics API
 
 ## Architecture
 
+The API Gateway acts as a single entry point for all client requests and routes them to the appropriate microservices based on the request path:
+
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
-│   Client    │───▶│  API Gateway │───▶│ Auth Service    │
-└─────────────┘    └──────────────┘    └─────────────────┘
-                            │
-                            ▼
-                   ┌─────────────────┐
-                   │ Product Service │
-                   └─────────────────┘
+Client → API Gateway → Microservices
 ```
 
-## Service Configuration
+### Service Mapping
 
-Services are configured in the SERVICES dictionary in [main.py](file:///C:/Users/husain.burhanpurwala/Downloads/auth-microservice/backend/gateway/main.py):
+| Service | Path Prefix | Target URL |
+|---------|-------------|------------|
+| Auth Service | `/auth` | `http://auth-service:8001` |
+| Product Service | `/api` | `http://product-service:8002` |
 
-```python
-SERVICES = {
-    "auth": {
-        "url": os.getenv("AUTH_SERVICE_URL", "http://auth-service:8001"),
-        "prefix": "/auth"
-    },
-    "product": {
-        "url": os.getenv("PRODUCT_SERVICE_URL", "http://product-service:8002"),
-        "prefix": "/api"
-    }
-}
-```
+## Modules
 
-## Routes
+### Config Module (`app/config.py`)
+Centralized configuration management:
+- Service definitions and URLs
+- Circuit breaker settings
+- Rate limiting parameters
 
-- `/auth/*` - Routes to Authentication Service
-- `/api/*` - Routes to Product Service
-- `/health` - Health check endpoint for all services
-- `/*` - All other routes are dynamically routed based on service prefixes
+### Models Module (`app/models.py`)
+Data structures and type definitions:
+- Service configuration models
+- Circuit breaker state management
+- Rate limiting state tracking
 
-## Environment Variables
+### Services Module (`app/services.py`)
+Core business logic:
+- HTTP client management
+- Circuit breaker implementation
+- Rate limiting enforcement
+- Health check utilities
 
-- `AUTH_SERVICE_URL` - URL of the Authentication Service (default: http://auth-service:8001)
-- `PRODUCT_SERVICE_URL` - URL of the Product Service (default: http://product-service:8002)
+### Routing Module (`app/routing.py`)
+API endpoint handling:
+- Request routing and forwarding
+- Middleware integration
+- Error handling and responses
 
-## Running with Docker
+## Endpoints
 
-The API Gateway is included in the main `docker-compose.yml` file and will start automatically when you run:
+### Core Endpoints
+- `GET /` - Gateway health check
+- `GET /health` - Detailed health status of all services
+- `GET /gateway/stats` - Gateway statistics and metrics
+
+### Service Endpoints
+- `POST /auth/*` - Authentication service endpoints
+- `GET/POST/PUT/DELETE /api/*` - Product service endpoints
+
+## Configuration
+
+The gateway is configured through environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AUTH_SERVICE_URL` | Auth service base URL | `http://localhost:8001` |
+| `PRODUCT_SERVICE_URL` | Product service base URL | `http://localhost:8002` |
+
+## Circuit Breaker
+
+The gateway implements a circuit breaker pattern to improve system resilience:
+
+- **CLOSED**: Normal operation, requests forwarded to service
+- **OPEN**: Service is failing, requests blocked temporarily
+- **HALF_OPEN**: Testing service availability after timeout
+
+Configuration:
+- Failure threshold: 5 consecutive failures
+- Recovery timeout: 30 seconds
+
+## Rate Limiting
+
+Per-client rate limiting prevents abuse:
+
+- Maximum 100 requests per minute per client per service
+- Automatic blocking when limits exceeded
+- Gradual recovery after window expires
+
+## Health Monitoring
+
+The gateway continuously monitors service health:
+
+- Periodic health checks to service `/health` endpoints
+- Circuit breaker state tracking
+- Detailed status reporting
+
+## Deployment
+
+### Docker
 
 ```bash
-docker-compose up --build
+docker-compose up gateway
 ```
 
-## Ports
+### Local Development
 
-- API Gateway: 8000 (external access)
-- Auth Service: 8001 (internal, routed through gateway)
-- Product Service: 8002 (internal, routed through gateway)
-- Frontend: 3000
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-## Accessing Services
+# Run the gateway
+python main.py
+```
 
-After starting the services:
+## Monitoring
 
-1. Frontend: http://localhost:3000
-2. API Gateway: http://localhost:8000
-3. Direct Auth Service: http://localhost:8001 (for debugging)
-4. Direct Product Service: http://localhost:8002 (for debugging)
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
 
-All client requests should go through the API Gateway on port 8000.
+### Gateway Statistics
+```bash
+curl http://localhost:8000/gateway/stats
+```
 
-## Implementation Details
+## Error Handling
 
-The gateway uses a dynamic routing approach:
-1. Incoming requests are matched against service prefixes
-2. Matching requests are forwarded to the appropriate service
-3. Responses are proxied back to the client
-4. Health checks verify all services are operational
+The gateway provides appropriate error responses:
 
-This implementation follows microservices best practices for API gateways.
+- `404`: Service not found
+- `429`: Rate limit exceeded
+- `503`: Service unavailable (circuit breaker open)
+- `504`: Gateway timeout
+
+## Extending the Gateway
+
+To add new services:
+
+1. Update the `SERVICES` configuration in `app/config.py`
+2. Add service URL to environment variables
+3. Update docker-compose.yml with new service dependencies
+
+## Best Practices
+
+1. **Security**: In production, restrict CORS origins to specific domains
+2. **Monitoring**: Implement centralized logging for production deployments
+3. **Scaling**: Deploy multiple gateway instances behind a load balancer
+4. **Configuration**: Use environment-specific configuration files
