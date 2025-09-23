@@ -1,6 +1,9 @@
 from firebase_admin import auth
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..schemas.auth import UserResponse
+from ..models.user import User, UserRole
+from .user_service import UserService
 
 class AuthService:
     @staticmethod
@@ -35,11 +38,36 @@ class AuthService:
             raise HTTPException(status_code=500, detail="Failed to revoke tokens")
     
     @staticmethod
-    def format_user_response(user_record: dict) -> UserResponse:
+    async def get_or_create_user_from_token(db: AsyncSession, decoded_token: dict) -> User:
+        """Get or create user from Firebase token data"""
+        uid = decoded_token.get('uid')
+        email = decoded_token.get('email')
+        phone_number = decoded_token.get('phone_number')
+        display_name = decoded_token.get('name')
+        photo_url = decoded_token.get('picture')
+        
+        user, created = await UserService.get_or_create_user(
+            db=db,
+            uid=uid,
+            email=email,
+            phone_number=phone_number,
+            display_name=display_name,
+            photo_url=photo_url,
+            role=UserRole.CUSTOMER  # Default role for new users
+        )
+        
+        return user
+    
+    @staticmethod
+    def format_user_response(user: User) -> UserResponse:
         return UserResponse(
-            uid=user_record.get('uid'),
-            email=user_record.get('email'),
-            phone_number=user_record.get('phone_number'),
-            display_name=user_record.get('name'),
-            photo_url=user_record.get('picture')
+            uid=user.uid,
+            email=user.email,
+            phone_number=user.phone_number,
+            display_name=user.display_name,
+            photo_url=user.photo_url,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            updated_at=user.updated_at
         )

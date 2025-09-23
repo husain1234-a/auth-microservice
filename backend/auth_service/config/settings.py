@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     session_cookie_name: str = "auth_session"
     environment: str = "development"
+    database_url: str 
     
     @property
     def cors_origins_list(self) -> List[str]:
