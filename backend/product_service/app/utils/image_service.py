@@ -58,8 +58,8 @@ class ImageService:
                 s3_key
             )
             
-            # Return public URL
-            return f"{settings.r2_endpoint_url}/{self.bucket_name}/{s3_key}"
+            # Return direct R2 public URL
+            return f"{settings.r2_public_url}/{s3_key}"
             
         except ClientError as e:
             # Handle R2-specific errors

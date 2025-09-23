@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { productAPI, Product, Category } from '@/lib/productApi';
+import R2Image from '@/components/ui/R2Image';
 
 interface User {
     uid: string;
@@ -100,12 +101,20 @@ export default function CustomerDashboard({ user, onLogout }: CustomerDashboardP
                             <button
                                 key={category.id}
                                 onClick={() => setSelectedCategory(category.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium ${selectedCategory === category.id
+                                className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium ${selectedCategory === category.id
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                     }`}
                             >
-                                {category.name}
+                                {category.image_url && (
+                                    <R2Image
+                                        src={category.image_url}
+                                        alt={category.name}
+                                        className="w-5 h-5 rounded-full object-cover"
+                                        fallbackText=""
+                                    />
+                                )}
+                                <span>{category.name}</span>
                             </button>
                         ))}
                     </div>
@@ -116,14 +125,11 @@ export default function CustomerDashboard({ user, onLogout }: CustomerDashboardP
                     {filteredProducts.map((product) => (
                         <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                             {product.image_url ? (
-                                <img
+                                <R2Image
                                     src={product.image_url}
                                     alt={product.name}
                                     className="w-full h-48 object-cover"
-                                    onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.src = `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=${encodeURIComponent(product.name)}`;
-                                    }}
+                                    fallbackText={product.name}
                                 />
                             ) : (
                                 <div className="w-full h-48 bg-gray-100 flex items-center justify-center">

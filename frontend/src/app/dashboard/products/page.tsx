@@ -87,8 +87,8 @@ export default function ProductsPage() {
         try {
             const productData = {
                 ...formData,
-                price: parseFloat(formData.price),
-                mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
+                price: Math.round(parseFloat(formData.price) * 100) / 100,
+                mrp: formData.mrp ? Math.round(parseFloat(formData.mrp) * 100) / 100 : undefined,
                 category_id: parseInt(formData.category_id),
                 stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : undefined,
                 image: imageFile || undefined
