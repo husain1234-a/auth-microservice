@@ -39,7 +39,7 @@ class ProductService:
         async with aiohttp.ClientSession() as session:
             try:
                 # Make HTTP request to Product service
-                async with session.get(f"{settings.product_service_url}/api/v1/products/{product_id}") as response:
+                async with session.get(f"{settings.product_service_url}/api/products/{product_id}") as response:
                     if response.status == 200:
                         # Parse successful response
                         data = await response.json()

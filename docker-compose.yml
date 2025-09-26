@@ -14,9 +14,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: product_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: poc
+      POSTGRES_USER: poc_user
+      POSTGRES_PASSWORD: admin123
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -26,8 +26,10 @@ services:
       - "8001:8001"
     environment:
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
     depends_on:
       - redis
+      - postgres
     env_file:
       - ./backend/auth_service/.env
 
@@ -36,7 +38,7 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/product_db
+      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
     depends_on:
       - postgres
     env_file:
@@ -47,11 +49,13 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/product_db
+      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
       - PRODUCT_SERVICE_URL=http://product-service:8002
+      - USER_SERVICE_URL=http://auth-service:8001
     depends_on:
       - postgres
       - product-service
+      - auth-service
     env_file:
       - ./backend/cart_service/.env
 

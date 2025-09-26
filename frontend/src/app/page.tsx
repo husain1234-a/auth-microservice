@@ -34,6 +34,11 @@ export default function Home() {
           const response = await authAPI.googleLogin(idToken);
           console.log('✅ Backend response for redirect:', response.data);
 
+          // Store the Firebase ID token for API calls
+          const { authStorage } = await import('@/utils/secureStorage');
+          authStorage.setToken(idToken);
+          console.log('💾 Firebase ID token stored for API calls (redirect)');
+
           // Check if user has phone number, if not redirect to phone collection
           if (!response.data.user.phone_number) {
             console.log('📞 No phone number found, redirecting to phone collection...');

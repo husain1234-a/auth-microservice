@@ -1,6 +1,9 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 from app.core.config import settings
+
+# Create a shared Base class for all models
+Base = declarative_base()
 
 # Create async engine
 engine = create_async_engine(
@@ -9,14 +12,15 @@ engine = create_async_engine(
 )
 
 # Create async session factory
-AsyncSessionLocal = sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False
 )
 
-# Base class for models
-Base = declarative_base()
+# Import all models after Base is defined to ensure they are registered with SQLAlchemy
+# This must be done after Base is defined to avoid circular imports
+from app.models.user import User
+from app.models.cart import Cart, CartItem, Wishlist, WishlistItem, PromoCode, CartPromoCode
 
 # Dependency to get database session
 async def get_db():

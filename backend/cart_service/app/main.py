@@ -5,9 +5,13 @@ This module initializes the FastAPI application for the Cart microservice.
 It sets up routes, middleware, and application-level configurations.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import api
+import time
+
+# Import models to ensure they're registered with SQLAlchemy
+from app.models import user, cart
 
 # Initialize FastAPI application with metadata
 app = FastAPI(
@@ -23,6 +27,22 @@ app = FastAPI(
         "url": "https://opensource.org/licenses/MIT",
     },
 )
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    
+    # Log request details
+    print(f"🌐 {request.method} {request.url}")
+    print(f"📋 Headers: {dict(request.headers)}")
+    
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    print(f"⏱️ Request completed in {process_time:.4f}s with status {response.status_code}")
+    
+    return response
 
 # Add CORS middleware
 app.add_middleware(
@@ -58,3 +78,26 @@ async def health_check():
         "service": "cart-service",
         "version": "1.0.0"
     }
+
+@app.post("/test-auth", tags=["Health"])
+async def test_auth(request: Request):
+    """Test endpoint to check Firebase token verification.
+    
+    Returns:
+        dict: Token verification result
+    """
+    try:
+        from app.core.security import get_current_user_id
+        from fastapi import Header
+        
+        # Get authorization header
+        auth_header = request.headers.get("authorization")
+        if not auth_header:
+            return {"error": "No authorization header provided", "headers": dict(request.headers)}
+        
+        # Try to verify the token
+        user_id = await get_current_user_id(auth_header)
+        return {"success": True, "user_id": user_id}
+        
+    except Exception as e:
+        return {"error": str(e), "type": type(e).__name__, "headers": dict(request.headers)}

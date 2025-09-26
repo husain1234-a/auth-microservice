@@ -20,6 +20,7 @@ from app.schemas.cart import (
     AddToWishlistRequest,
     MoveToCartRequest
 )
+from typing import Optional
 
 router = APIRouter()
 
@@ -27,7 +28,7 @@ router = APIRouter()
 
 @router.get("/cart", response_model=CartResponse, summary="Get User's Cart")
 async def get_cart(
-    user_id: str = Depends(get_current_user_id),  # Changed from int to str
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve the current user's cart with all items.
@@ -50,7 +51,7 @@ async def get_cart(
 @router.post("/cart/add", response_model=CartResponse, summary="Add Item to Cart")
 async def add_to_cart(
     item_data: AddToCartRequest,
-    user_id: str = Depends(get_current_user_id),  # Changed from int to str
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Add an item to the user's cart or update quantity if already exists.

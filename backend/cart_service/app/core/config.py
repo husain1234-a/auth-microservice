@@ -15,8 +15,21 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
     # External Services
-    product_service_url: str = "http://product-service:8002"
-    user_service_url: str = "http://user-service:8001"
+    product_service_url: str = "http://localhost:8002"
+    user_service_url: str = "http://localhost:8001"
+    
+    # Firebase Configuration
+    firebase_project_id: str
+    firebase_private_key_id: str
+    firebase_private_key: str
+    firebase_client_email: str
+    firebase_client_id: str
+    firebase_auth_uri: str
+    firebase_token_uri: str
+    firebase_client_cert_url: str
+    
+    # Session Configuration
+    session_cookie_name: str = "auth_session"
     
     class Config:
         env_file = ".env"

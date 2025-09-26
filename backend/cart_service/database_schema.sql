@@ -151,3 +151,19 @@ CREATE INDEX ix_promo_codes_code ON promo_codes (code);
 CREATE INDEX ix_cart_promo_codes_cart_id ON cart_promo_codes (cart_id);
 
 CREATE INDEX ix_cart_promo_codes_promo_code_id ON cart_promo_codes (promo_code_id);
+
+-- Connect to your database as a superuser (like postgres) and run:
+GRANT ALL PRIVILEGES ON TABLE carts TO poc_user;
+
+GRANT ALL PRIVILEGES ON TABLE wishlists TO poc_user;
+
+GRANT ALL PRIVILEGES ON TABLE cart_items TO poc_user;
+
+GRANT ALL PRIVILEGES ON TABLE wishlist_items TO poc_user;
+
+GRANT ALL PRIVILEGES ON TABLE promo_codes TO poc_user;
+
+GRANT ALL PRIVILEGES ON TABLE cart_promo_codes TO poc_user;
+
+-- Also grant usage on the schema
+GRANT USAGE ON SCHEMA public TO poc_user;
