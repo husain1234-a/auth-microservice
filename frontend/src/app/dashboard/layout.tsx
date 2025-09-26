@@ -14,6 +14,8 @@ export default function DashboardLayout({
         { name: 'Dashboard', href: '/dashboard' },
         { name: 'Products', href: '/dashboard/products' },
         { name: 'Categories', href: '/dashboard/categories' },
+        { name: 'Cart', href: '/dashboard/cart' },
+        { name: 'Wishlist', href: '/dashboard/wishlist' },
     ];
 
     return (
@@ -32,8 +34,8 @@ export default function DashboardLayout({
                                         key={item.name}
                                         href={item.href}
                                         className={`${pathname === item.href
-                                                ? 'border-blue-500 text-gray-900'
-                                                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                                            ? 'border-blue-500 text-gray-900'
+                                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                             } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                                     >
                                         {item.name}

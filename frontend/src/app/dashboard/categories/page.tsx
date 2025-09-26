@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productAPI, Category } from '@/lib/productApi';
 import { authAPI } from '@/lib/api';
+import SkeletonLoader from '@/components/SkeletonLoader';
+import R2Image from '@/components/ui/R2Image';
 
 export default function CategoriesPage() {
     const router = useRouter();
@@ -133,8 +135,66 @@ export default function CategoriesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Loading categories...</div>
+            <div className="min-h-screen bg-gray-50">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow">
+                    <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+                        <SkeletonLoader type="text" />
+                        <div className="flex items-center space-x-4">
+                            <SkeletonLoader type="text" />
+                            <div className="w-24 h-10 skeleton-loader rounded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                    {/* Action buttons Skeleton */}
+                    <div className="mb-6 flex justify-between items-center">
+                        <SkeletonLoader type="text" />
+                        <div className="w-32 h-10 skeleton-loader rounded"></div>
+                    </div>
+
+                    {/* Create/Edit Form Skeleton */}
+                    {showCreateForm && (
+                        <div className="bg-white shadow rounded-lg p-6 mb-8">
+                            <div className="h-6 w-1/3 skeleton-loader rounded mb-4"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <div className="h-4 w-1/4 skeleton-loader rounded mb-2"></div>
+                                    <div className="h-10 skeleton-loader rounded"></div>
+                                </div>
+                                <div>
+                                    <div className="h-4 w-1/4 skeleton-loader rounded mb-2"></div>
+                                    <div className="h-10 skeleton-loader rounded"></div>
+                                </div>
+                            </div>
+                            <div className="mt-6 flex space-x-3">
+                                <div className="w-24 h-10 skeleton-loader rounded"></div>
+                                <div className="w-24 h-10 skeleton-loader rounded"></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Categories Table Skeleton */}
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div className="bg-gray-50 h-12 skeleton-loader"></div>
+                        <div className="divide-y divide-gray-200">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="px-6 py-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="h-4 w-1/4 skeleton-loader rounded"></div>
+                                        <div className="h-10 w-10 rounded skeleton-loader"></div>
+                                        <div className="w-16 h-6 skeleton-loader rounded"></div>
+                                        <div className="flex space-x-2">
+                                            <div className="w-12 h-6 skeleton-loader rounded"></div>
+                                            <div className="w-12 h-6 skeleton-loader rounded"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
@@ -258,7 +318,7 @@ export default function CategoriesPage() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {category.image_url ? (
-                                            <img className="h-10 w-10 rounded" src={category.image_url} alt={category.name} />
+                                            <R2Image className="h-10 w-10 rounded" src={category.image_url} alt={category.name} />
                                         ) : (
                                             <div className="h-10 w-10 rounded bg-gray-200 flex items-center justify-center">
                                                 <span className="text-gray-500 text-xs">No Image</span>

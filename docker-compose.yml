@@ -32,7 +32,7 @@ services:
       - ./backend/auth_service/.env
 
   product-service:
-    build: ./product_service
+    build: ./backend/product_service
     ports:
       - "8002:8002"
     environment:
@@ -40,7 +40,20 @@ services:
     depends_on:
       - postgres
     env_file:
-      - ./product_service/.env
+      - ./backend/product_service/.env
+
+  cart-service:
+    build: ./backend/cart_service
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/product_db
+      - PRODUCT_SERVICE_URL=http://product-service:8002
+    depends_on:
+      - postgres
+      - product-service
+    env_file:
+      - ./backend/cart_service/.env
 
   gateway:
     build: ./backend/gateway
@@ -49,9 +62,11 @@ services:
     environment:
       - AUTH_SERVICE_URL=http://auth-service:8001
       - PRODUCT_SERVICE_URL=http://product-service:8002
+      - CART_SERVICE_URL=http://cart-service:8003
     depends_on:
       - auth-service
       - product-service
+      - cart-service
     env_file:
       - ./backend/gateway/.env
 

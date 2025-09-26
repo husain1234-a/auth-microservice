@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { productAPI, Product, Category } from '@/lib/productApi';
+import SkeletonLoader from '@/components/SkeletonLoader';
+import R2Image from '@/components/ui/R2Image';
 
 interface User {
     uid: string;
@@ -57,11 +59,71 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <div className="text-xl text-gray-600">Loading dashboard...</div>
+            <div className="min-h-screen bg-gray-50">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow sticky top-0 z-50">
+                    <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                        <div className="flex items-center space-x-4">
+                            <SkeletonLoader type="text" className="h-6 w-48" />
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-full skeleton-loader"></div>
+                                <SkeletonLoader type="text" className="h-4 w-32" />
+                            </div>
+                            <div className="w-20 h-10 skeleton-loader rounded-lg"></div>
+                        </div>
+                    </div>
+
+                    {/* Navigation Tabs Skeleton */}
+                    <div className="border-t border-gray-200">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex space-x-8 py-4">
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="py-4">
+                                        <SkeletonLoader type="text" className="h-4 w-24" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                    {/* Content Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                                <div className="p-5">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0">
+                                            <div className="w-8 h-8 rounded-full skeleton-loader"></div>
+                                        </div>
+                                        <div className="ml-5 w-0 flex-1">
+                                            <SkeletonLoader type="text" className="h-4 w-3/4 mb-2" />
+                                            <SkeletonLoader type="text" className="h-6 w-1/2" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                                <div className="px-6 py-5">
+                                    <SkeletonLoader type="text" className="h-5 w-32 mb-4" />
+                                    <div className="space-y-3">
+                                        {[...Array(2)].map((_, j) => (
+                                            <div key={j} className="w-full h-16 skeleton-loader rounded-lg"></div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </main>
             </div>
         );
     }
@@ -82,7 +144,7 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
                             {user.photo_url && (
-                                <img
+                                <R2Image
                                     src={user.photo_url}
                                     alt="Profile"
                                     className="w-8 h-8 rounded-full"
@@ -106,8 +168,8 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                             <button
                                 onClick={() => setActiveTab('overview')}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'overview'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                             >
                                 Overview
@@ -115,8 +177,8 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                             <button
                                 onClick={() => setActiveTab('products')}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'products'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                             >
                                 Products ({totalProducts})
@@ -124,8 +186,8 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                             <button
                                 onClick={() => setActiveTab('categories')}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'categories'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                             >
                                 Categories ({totalCategories})
@@ -245,14 +307,10 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                                         {products.slice(0, 3).map((product) => (
                                             <div key={product.id} className="flex items-center space-x-3">
                                                 {product.image_url ? (
-                                                    <img
+                                                    <R2Image
                                                         src={product.image_url}
                                                         alt={product.name}
                                                         className="h-10 w-10 rounded-lg object-cover"
-                                                        onError={(e) => {
-                                                            const target = e.target as HTMLImageElement;
-                                                            target.src = `https://via.placeholder.com/40x40/f3f4f6/9ca3af?text=${encodeURIComponent(product.name.charAt(0))}`;
-                                                        }}
                                                     />
                                                 ) : (
                                                     <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">

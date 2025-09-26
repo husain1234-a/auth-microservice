@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  cart-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: poc
+      POSTGRES_USER: poc_user
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - cart_db_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/database_schema.sql
+
+  cart-service:
+    build: .
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@cart-db:5432/poc
+      - JWT_SECRET_KEY=your_secret_key_here
+      - PRODUCT_SERVICE_URL=http://product-service:8002
+      - USER_SERVICE_URL=http://user-service:8001
+    depends_on:
+      - cart-db
+    volumes:
+      - .:/app
+
+volumes:
+  cart_db_data:

@@ -12,6 +12,11 @@ SERVICES: Dict[str, Dict[str, Any]] = {
         "url": os.getenv("PRODUCT_SERVICE_URL", "http://localhost:8002"),
         "prefix": "/api",
         "health_path": "/health"
+    },
+    "cart": {
+        "url": os.getenv("CART_SERVICE_URL", "http://localhost:8003"),
+        "prefix": "/cart",
+        "health_path": "/health"
     }
 }
 

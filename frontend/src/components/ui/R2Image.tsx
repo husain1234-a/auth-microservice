@@ -52,12 +52,7 @@ export default function R2Image({
     return (
         <div className={`relative ${className}`}>
             {imageLoading && (
-                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-                    <div className="animate-pulse">
-                        <div className="text-2xl mb-2">⏳</div>
-                        <div className="text-xs text-gray-500">Loading...</div>
-                    </div>
-                </div>
+                <div className="absolute inset-0 skeleton-loader skeleton-image rounded"></div>
             )}
             <img
                 src={src}

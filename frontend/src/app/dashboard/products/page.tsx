@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productAPI, Product, Category } from '@/lib/productApi';
 import { authAPI } from '@/lib/api';
+import SkeletonLoader from '@/components/SkeletonLoader';
+import R2Image from '@/components/ui/R2Image';
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -91,6 +93,7 @@ export default function ProductsPage() {
                 mrp: formData.mrp ? Math.round(parseFloat(formData.mrp) * 100) / 100 : undefined,
                 category_id: parseInt(formData.category_id),
                 stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : undefined,
+                unit: formData.unit || undefined,
                 image: imageFile || undefined
             };
 
@@ -170,8 +173,76 @@ export default function ProductsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Loading products...</div>
+            <div className="min-h-screen bg-gray-50">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow">
+                    <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+                        <SkeletonLoader type="text" />
+                        <div className="flex items-center space-x-4">
+                            <SkeletonLoader type="text" />
+                            <div className="w-24 h-10 skeleton-loader rounded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                    {/* Action buttons Skeleton */}
+                    <div className="mb-6 flex justify-between items-center">
+                        <SkeletonLoader type="text" />
+                        <div className="w-32 h-10 skeleton-loader rounded"></div>
+                    </div>
+
+                    {/* Create/Edit Form Skeleton */}
+                    {showCreateForm && (
+                        <div className="bg-white shadow rounded-lg p-6 mb-8">
+                            <div className="h-6 w-1/3 skeleton-loader rounded mb-4"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i}>
+                                        <div className="h-4 w-1/4 skeleton-loader rounded mb-2"></div>
+                                        <div className="h-10 skeleton-loader rounded"></div>
+                                    </div>
+                                ))}
+                                <div className="md:col-span-2">
+                                    <div className="h-4 w-1/4 skeleton-loader rounded mb-2"></div>
+                                    <div className="h-24 skeleton-loader rounded"></div>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <div className="h-4 w-1/4 skeleton-loader rounded mb-2"></div>
+                                    <div className="h-10 skeleton-loader rounded"></div>
+                                </div>
+                            </div>
+                            <div className="mt-6 flex space-x-3">
+                                <div className="w-24 h-10 skeleton-loader rounded"></div>
+                                <div className="w-24 h-10 skeleton-loader rounded"></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Products Table Skeleton */}
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div className="bg-gray-50 h-12 skeleton-loader"></div>
+                        <div className="divide-y divide-gray-200">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="px-6 py-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="h-10 w-10 rounded-full skeleton-loader"></div>
+                                            <div className="ml-4">
+                                                <div className="h-4 w-24 skeleton-loader rounded mb-2"></div>
+                                                <div className="h-3 w-32 skeleton-loader rounded"></div>
+                                            </div>
+                                        </div>
+                                        <div className="flex space-x-4">
+                                            <div className="w-16 h-6 skeleton-loader rounded"></div>
+                                            <div className="w-16 h-6 skeleton-loader rounded"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
@@ -390,7 +461,7 @@ export default function ProductsPage() {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             {product.image_url ? (
-                                                <img className="h-10 w-10 rounded-full" src={product.image_url} alt={product.name} />
+                                                <R2Image className="h-10 w-10 rounded-full" src={product.image_url} alt={product.name} />
                                             ) : (
                                                 <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                                                     <span className="text-gray-500">No Image</span>

@@ -59,3 +59,9 @@ firebase-debug.log
 
 # Redis
 dump.rdb
+
+# Kiro
+.kiro/
+
+# Qodo
+.qodo/

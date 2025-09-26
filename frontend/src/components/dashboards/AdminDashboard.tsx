@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { productAPI, Product, Category } from '@/lib/productApi';
 import Link from 'next/link';
+import SkeletonLoader from '@/components/SkeletonLoader';
+import R2Image from '@/components/ui/R2Image';
 
 interface User {
     uid: string;
@@ -45,8 +47,108 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-xl">Loading...</div>
+            <div className="min-h-screen bg-gray-50">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow">
+                    <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+                        <SkeletonLoader type="text" className="h-8 w-64" />
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-full skeleton-loader"></div>
+                                <SkeletonLoader type="text" className="h-4 w-32" />
+                            </div>
+                            <div className="w-24 h-10 skeleton-loader rounded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                    {/* Stats Overview Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white overflow-hidden shadow rounded-lg">
+                                <div className="p-5">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0">
+                                            <div className="w-8 h-8 rounded-full skeleton-loader"></div>
+                                        </div>
+                                        <div className="ml-5 w-0 flex-1">
+                                            <SkeletonLoader type="text" className="h-4 w-3/4 mb-2" />
+                                            <SkeletonLoader type="text" className="h-6 w-1/2" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Management Cards Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="bg-white overflow-hidden shadow rounded-lg">
+                                <div className="px-4 py-5 sm:p-6">
+                                    <SkeletonLoader type="text" className="h-5 w-3/4 mb-4" />
+                                    <SkeletonLoader type="text" className="h-4 w-full mb-6" />
+                                    <div className="w-32 h-10 skeleton-loader rounded"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* System Overview Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="bg-white shadow overflow-hidden sm:rounded-lg">
+                                <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+                                    <div>
+                                        <SkeletonLoader type="text" className="h-5 w-40 mb-2" />
+                                        <SkeletonLoader type="text" className="h-4 w-64" />
+                                    </div>
+                                    <div className="w-16 h-6 skeleton-loader rounded"></div>
+                                </div>
+                                <div className="border-t border-gray-200">
+                                    <div className="divide-y divide-gray-200">
+                                        {[...Array(3)].map((_, j) => (
+                                            <div key={j} className="px-4 py-4">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="h-10 w-10 rounded-full skeleton-loader"></div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <SkeletonLoader type="text" className="h-4 w-32 mb-2" />
+                                                        <SkeletonLoader type="text" className="h-4 w-16" />
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <SkeletonLoader type="text" className="h-4 w-24 mb-2" />
+                                                        <div className="w-16 h-6 skeleton-loader rounded-full"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Admin Profile Section Skeleton */}
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div className="px-4 py-5 sm:px-6">
+                            <SkeletonLoader type="text" className="h-5 w-48 mb-2" />
+                            <SkeletonLoader type="text" className="h-4 w-64" />
+                        </div>
+                        <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
+                            <div className="sm:divide-y sm:divide-gray-200">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                        <SkeletonLoader type="text" className="h-4 w-32" />
+                                        <div className="mt-1 sm:mt-0 sm:col-span-2">
+                                            <SkeletonLoader type="text" className="h-4 w-48" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
@@ -65,7 +167,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
                             {user.photo_url && (
-                                <img
+                                <R2Image
                                     src={user.photo_url}
                                     alt="Profile"
                                     className="w-8 h-8 rounded-full"
@@ -232,7 +334,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                                     <li key={product.id} className="px-4 py-4">
                                         <div className="flex items-center space-x-4">
                                             {product.image_url && (
-                                                <img className="h-10 w-10 rounded-full object-cover" src={product.image_url} alt="" />
+                                                <R2Image className="h-10 w-10 rounded-full object-cover" src={product.image_url} alt={product.name} />
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
@@ -272,7 +374,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                                     <li key={category.id} className="px-4 py-4">
                                         <div className="flex items-center space-x-4">
                                             {category.image_url && (
-                                                <img className="h-10 w-10 rounded-full object-cover" src={category.image_url} alt="" />
+                                                <R2Image className="h-10 w-10 rounded-full object-cover" src={category.image_url} alt={category.name} />
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">{category.name}</p>

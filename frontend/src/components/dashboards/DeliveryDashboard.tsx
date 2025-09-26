@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import SkeletonLoader from '@/components/SkeletonLoader';
+import R2Image from '@/components/ui/R2Image';
 
 interface User {
     uid: string;
@@ -117,11 +119,84 @@ export default function DeliveryDashboard({ user, onLogout }: DeliveryDashboardP
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <div className="text-xl text-gray-600">Loading delivery dashboard...</div>
+            <div className="min-h-screen bg-gray-50">
+                {/* Header Skeleton */}
+                <div className="bg-white shadow sticky top-0 z-50">
+                    <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                        <div className="flex items-center space-x-4">
+                            <SkeletonLoader type="text" className="h-6 w-48" />
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-full skeleton-loader"></div>
+                                <SkeletonLoader type="text" className="h-4 w-32" />
+                            </div>
+                            <div className="w-20 h-10 skeleton-loader rounded-lg"></div>
+                        </div>
+                    </div>
+
+                    {/* Navigation Tabs Skeleton */}
+                    <div className="border-t border-gray-200">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex space-x-8 py-4">
+                                {[...Array(4)].map((_, i) => (
+                                    <div key={i} className="py-4">
+                                        <SkeletonLoader type="text" className="h-4 w-24" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                    {/* Content Skeleton */}
+                    <div className="mb-6">
+                        <SkeletonLoader type="text" className="h-7 w-64 mb-2" />
+                        <SkeletonLoader type="text" className="h-5 w-80" />
+                    </div>
+
+                    <div className="grid gap-6">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <SkeletonLoader type="text" className="h-5 w-32 mb-2" />
+                                        <SkeletonLoader type="text" className="h-4 w-40" />
+                                    </div>
+                                    <div className="text-right">
+                                        <SkeletonLoader type="text" className="h-6 w-20 mb-2" />
+                                        <SkeletonLoader type="text" className="h-4 w-24" />
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <SkeletonLoader type="text" className="h-5 w-32 mb-2" />
+                                        <SkeletonLoader type="text" className="h-4 w-full mb-1" />
+                                        <SkeletonLoader type="text" className="h-4 w-48" />
+                                    </div>
+                                    <div>
+                                        <SkeletonLoader type="text" className="h-5 w-32 mb-2" />
+                                        <div className="space-y-1">
+                                            {[...Array(3)].map((_, j) => (
+                                                <SkeletonLoader key={j} type="text" className="h-4 w-full" />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <SkeletonLoader type="text" className="h-4 w-16" />
+                                        <SkeletonLoader type="text" className="h-4 w-20" />
+                                    </div>
+                                    <div className="w-24 h-10 skeleton-loader rounded-lg"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </main>
             </div>
         );
     }
@@ -148,7 +223,7 @@ export default function DeliveryDashboard({ user, onLogout }: DeliveryDashboardP
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
                             {user.photo_url && (
-                                <img
+                                <R2Image
                                     src={user.photo_url}
                                     alt="Profile"
                                     className="w-8 h-8 rounded-full"
