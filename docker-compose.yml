@@ -9,6 +9,59 @@ services:
     volumes:
       - redis_data:/data
 
+  # Auth Service Database
+  auth-db:
+    image: postgres:15
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass123
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+      - ./database/init/auth_db_init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Product Service Database
+  product-db:
+    image: postgres:15
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: product_user
+      POSTGRES_PASSWORD: product_pass123
+    volumes:
+      - product_db_data:/var/lib/postgresql/data
+      - ./database/init/product_db_init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Cart Service Database
+  cart-db:
+    image: postgres:15
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: cart_db
+      POSTGRES_USER: cart_user
+      POSTGRES_PASSWORD: cart_pass123
+    volumes:
+      - cart_db_data:/var/lib/postgresql/data
+      - ./database/init/cart_db_init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Promotion Service Database
+  promotion-db:
+    image: postgres:15
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: promotion_db
+      POSTGRES_USER: promotion_user
+      POSTGRES_PASSWORD: promotion_pass123
+    volumes:
+      - promotion_db_data:/var/lib/postgresql/data
+      - ./database/init/promotion_db_init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Legacy database (to be removed after migration)
   postgres:
     image: postgres:15
     ports:
@@ -26,9 +79,11 @@ services:
       - "8001:8001"
     environment:
       - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
+      - DATABASE_URL=postgresql+asyncpg://auth_user:auth_pass123@auth-db:5432/auth_db
+      - LEGACY_DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
     depends_on:
       - redis
+      - auth-db
       - postgres
     env_file:
       - ./backend/auth_service/.env
@@ -38,8 +93,10 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
+      - DATABASE_URL=postgresql+asyncpg://product_user:product_pass123@product-db:5432/product_db
+      - LEGACY_DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
     depends_on:
+      - product-db
       - postgres
     env_file:
       - ./backend/product_service/.env
@@ -49,10 +106,12 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
+      - DATABASE_URL=postgresql+asyncpg://cart_user:cart_pass123@cart-db:5432/cart_db
+      - LEGACY_DATABASE_URL=postgresql+asyncpg://poc_user:admin123@postgres:5432/poc
       - PRODUCT_SERVICE_URL=http://product-service:8002
       - USER_SERVICE_URL=http://auth-service:8001
     depends_on:
+      - cart-db
       - postgres
       - product-service
       - auth-service
@@ -88,3 +147,7 @@ services:
 volumes:
   redis_data:
   postgres_data:
+  auth_db_data:
+  product_db_data:
+  cart_db_data:
+  promotion_db_data:

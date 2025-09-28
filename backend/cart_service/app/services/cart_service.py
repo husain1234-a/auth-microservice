@@ -1,588 +1,375 @@
-from sqlalchemy import select, and_
+"""
+Cart Service with Dual-Write Support
+
+This service layer implements cart operations with dual-write functionality
+during the database migration phase.
+"""
+
+import logging
+from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-from app.models.cart import Cart, CartItem, Wishlist, WishlistItem, PromoCode, CartPromoCode
-from app.schemas.cart import (
-    AddToCartRequest, 
-    RemoveFromCartRequest, 
-    ApplyPromoCodeRequest, 
-    AddToWishlistRequest, 
-    MoveToCartRequest
-)
-from app.services.product_service import ProductService
-from fastapi import HTTPException
+from sqlalchemy import select, delete
+from datetime import datetime
+
+from app.models.cart import Cart, CartItem, Wishlist, WishlistItem
+from app.models.user import User
+from app.core.database import get_db, get_dual_write_manager
+from app.core.dual_write_manager import CartDualWriteManager
+
+logger = logging.getLogger(__name__)
+
 
 class CartService:
-    """Service class for handling cart-related operations.
+    """
+    Cart service with dual-write support for database migration.
     
-    This service provides methods for managing user shopping carts,
-    including adding items, removing items, and retrieving cart information.
-    It also handles wishlist and promo code functionality.
+    This service handles all cart-related operations and automatically
+    writes to both new and legacy databases when dual-write is enabled.
     """
     
-    def __init__(self, db: AsyncSession):
-        """Initialize the CartService with a database session.
-        
-        Args:
-            db: An async database session for interacting with the database
-        """
-        self.db = db
-        
-    # Cart Methods
+    def __init__(self):
+        self.dual_write_manager: Optional[CartDualWriteManager] = None
     
-    async def get_or_create_cart(self, user_id: str) -> Cart:
-        """Get existing cart for user or create a new one.
-        
-        Args:
-            user_id: The ID of the user whose cart to retrieve or create
-            
-        Returns:
-            Cart: The user's cart object
-        """
-        result = await self.db.execute(select(Cart).where(Cart.user_id == user_id))
-        cart = result.scalar_one_or_none()
-        
-        if not cart:
-            cart = Cart(user_id=user_id)
-            self.db.add(cart)
-            await self.db.commit()
-            await self.db.refresh(cart)
-            
-        return cart
+    async def _get_dual_write_manager(self) -> Optional[CartDualWriteManager]:
+        """Get dual-write manager instance"""
+        if not self.dual_write_manager:
+            self.dual_write_manager = get_dual_write_manager()
+        return self.dual_write_manager
     
-    async def get_or_create_wishlist(self, user_id: str) -> Wishlist:
-        """Get existing wishlist for user or create a new one.
-        
-        Args:
-            user_id: The ID of the user whose wishlist to retrieve or create
-            
-        Returns:
-            Wishlist: The user's wishlist object
+    async def create_cart_for_user(self, user_id: str) -> Dict[str, Any]:
         """
-        result = await self.db.execute(select(Wishlist).where(Wishlist.user_id == user_id))
-        wishlist = result.scalar_one_or_none()
-        
-        if not wishlist:
-            wishlist = Wishlist(user_id=user_id)
-            self.db.add(wishlist)
-            await self.db.commit()
-            await self.db.refresh(wishlist)
-            
-        return wishlist
-    
-    async def get_cart_with_items(self, user_id: str) -> Cart:
-        """Get user's cart with all items and product details.
-        
-        This method retrieves a user's cart and populates it with all items.
-        It also fetches product details for each item from the Product service
-        and calculates cart totals.
-        
-        Args:
-            user_id: The ID of the user whose cart to retrieve
-            
-        Returns:
-            Cart: The user's cart with items and product details
+        Create a cart for a user.
+        Uses dual-write if enabled, otherwise writes only to new database.
         """
-        cart = await self.get_or_create_cart(user_id)
+        dual_write_manager = await self._get_dual_write_manager()
         
-        # Load cart with items using selectinload to avoid lazy loading issues
-        result = await self.db.execute(
-            select(Cart)
-            .options(selectinload(Cart.items))
-            .where(Cart.id == cart.id)
-        )
-        cart_with_items = result.scalar_one()
-        
-        # Use the cart with properly loaded items
-        cart = cart_with_items
-        
-        # Load applied promo codes
-        promo_result = await self.db.execute(
-            select(CartPromoCode).where(CartPromoCode.cart_id == cart.id)
-        )
-        cart_promo_codes = promo_result.scalars().all()
-        
-        # Load product details for each item
-        total_amount = 0
-        for item in cart.items:
-            try:
-                product = await ProductService.get_product(item.product_id)
-                # This is a simplified approach - in a real app, you might want to store
-                # product details in the cart item to avoid calling the product service
-                # every time the cart is retrieved
-                setattr(item, 'product', product)
-                total_amount += product.price * item.quantity
-            except HTTPException:
-                # If product is not found, we might want to remove it from the cart
-                # For now, we'll just skip it
-                pass
-        
-        # Calculate totals
-        cart.subtotal = total_amount
-        cart.total_items = sum(item.quantity for item in cart.items)
-        
-        # Apply promo code discount if any
-        if cart_promo_codes:
-            # For simplicity, we're only handling one promo code
-            cart_promo_code = cart_promo_codes[0]
-            promo_result = await self.db.execute(
-                select(PromoCode).where(PromoCode.id == cart_promo_code.promo_code_id)
-            )
-            promo_code = promo_result.scalar_one_or_none()
+        if dual_write_manager:
+            # Use dual-write
+            result = await dual_write_manager.create_cart(user_id)
             
-            if promo_code:
-                # Refresh the promo_code to get actual values instead of Column objects
-                await self.db.refresh(promo_code)
-                
-                # Extract values using getattr to avoid SQLAlchemy column expression issues
-                is_active = getattr(promo_code, 'is_active', False)
-                discount_type = getattr(promo_code, 'discount_type', '')
-                discount_value = float(str(getattr(promo_code, 'discount_value', 0)))
-                minimum_order_value = float(str(getattr(promo_code, 'minimum_order_value', 0) or 0))
-                
-                if is_active:
-                    # Check if promo code is valid based on minimum order value
-                    if cart.subtotal >= minimum_order_value:
-                        # Calculate discount
-                        if discount_type == "percentage":
-                            cart.discount_amount = cart.subtotal * (discount_value / 100)
-                        elif discount_type == "fixed_amount":  # Updated to match schema
-                            cart.discount_amount = min(discount_value, cart.subtotal)
-                        
-                        cart.total_amount = cart.subtotal - cart.discount_amount
-                        setattr(cart, 'promo_code', promo_code)
-                    else:
-                        cart.total_amount = cart.subtotal
-                else:
-                    cart.total_amount = cart.subtotal
+            if result.success:
+                # Get the created cart from new database
+                async for session in get_db():
+                    cart_result = await session.execute(
+                        select(Cart).where(Cart.user_id == user_id)
+                    )
+                    cart = cart_result.scalar_one_or_none()
+                    
+                    if cart:
+                        return {
+                            'id': cart.id,
+                            'user_id': cart.user_id,
+                            'created_at': cart.created_at,
+                            'updated_at': cart.updated_at,
+                            'dual_write_result': result.to_dict()
+                        }
+                    break
             else:
-                cart.total_amount = cart.subtotal
+                logger.error(f"Failed to create cart for user {user_id}: {result.to_dict()}")
+                raise Exception("Failed to create cart")
         else:
-            cart.total_amount = cart.subtotal
-            cart.discount_amount = 0
-        
-        return cart
+            # Single database write
+            async for session in get_db():
+                try:
+                    # Check if cart already exists
+                    existing_cart = await session.execute(
+                        select(Cart).where(Cart.user_id == user_id)
+                    )
+                    cart = existing_cart.scalar_one_or_none()
+                    
+                    if not cart:
+                        cart = Cart(user_id=user_id)
+                        session.add(cart)
+                        await session.commit()
+                        await session.refresh(cart)
+                    
+                    return {
+                        'id': cart.id,
+                        'user_id': cart.user_id,
+                        'created_at': cart.created_at,
+                        'updated_at': cart.updated_at
+                    }
+                except Exception as e:
+                    await session.rollback()
+                    logger.error(f"Error creating cart for user {user_id}: {e}")
+                    raise
+                finally:
+                    break
     
-    async def add_item_to_cart(self, user_id: str, item_data: AddToCartRequest) -> Cart:
-        """Add an item to the user's cart or update quantity if already exists.
-        
-        This method adds a new item to the user's cart or increases the quantity
-        if the item already exists in the cart. It first verifies that the
-        product exists by calling the Product service.
-        
-        Args:
-            user_id: The ID of the user whose cart to modify
-            item_data: The data for the item to add to the cart
-            
-        Returns:
-            Cart: The updated cart with all items
-            
-        Raises:
-            HTTPException: If the product is not found (404)
+    async def add_item_to_cart(
+        self, 
+        user_id: str, 
+        product_id: int, 
+        quantity: int
+    ) -> Dict[str, Any]:
         """
-        # First, verify the product exists
-        try:
-            product = await ProductService.get_product(item_data.product_id)
-        except HTTPException:
-            raise HTTPException(status_code=404, detail="Product not found")
+        Add an item to user's cart.
+        Uses dual-write if enabled.
+        """
+        # First ensure cart exists
+        cart_data = await self.create_cart_for_user(user_id)
+        cart_id = cart_data['id']
         
-        # Get or create cart
-        cart = await self.get_or_create_cart(user_id)
+        dual_write_manager = await self._get_dual_write_manager()
         
-        # Check if item already exists in cart
-        result = await self.db.execute(
-            select(CartItem).where(
-                CartItem.cart_id == cart.id,
-                CartItem.product_id == item_data.product_id
-            )
-        )
-        cart_item = result.scalar_one_or_none()
-        
-        if cart_item:
-            # Update quantity using setattr to avoid SQLAlchemy column expression issues
-            new_quantity = cart_item.quantity + item_data.quantity
-            setattr(cart_item, 'quantity', new_quantity)
+        if dual_write_manager:
+            # Use dual-write
+            result = await dual_write_manager.add_cart_item(cart_id, product_id, quantity)
+            
+            if result.success:
+                # Get the cart item from new database
+                async for session in get_db():
+                    item_result = await session.execute(
+                        select(CartItem).where(
+                            CartItem.cart_id == cart_id,
+                            CartItem.product_id == product_id
+                        )
+                    )
+                    cart_item = item_result.scalar_one_or_none()
+                    
+                    if cart_item:
+                        return {
+                            'id': cart_item.id,
+                            'cart_id': cart_item.cart_id,
+                            'product_id': cart_item.product_id,
+                            'quantity': cart_item.quantity,
+                            'created_at': cart_item.created_at,
+                            'updated_at': cart_item.updated_at,
+                            'dual_write_result': result.to_dict()
+                        }
+                    break
+            else:
+                logger.error(f"Failed to add item to cart: {result.to_dict()}")
+                raise Exception("Failed to add item to cart")
         else:
-            # Create new cart item
-            cart_item = CartItem(
-                cart_id=cart.id,
-                product_id=item_data.product_id,
-                quantity=item_data.quantity
-            )
-            self.db.add(cart_item)
-        
-        await self.db.commit()
-        await self.db.refresh(cart_item)
-        
-        # Return updated cart
-        return await self.get_cart_with_items(user_id)
+            # Single database write
+            async for session in get_db():
+                try:
+                    # Check if item already exists
+                    existing_item = await session.execute(
+                        select(CartItem).where(
+                            CartItem.cart_id == cart_id,
+                            CartItem.product_id == product_id
+                        )
+                    )
+                    cart_item = existing_item.scalar_one_or_none()
+                    
+                    if cart_item:
+                        cart_item.quantity = quantity
+                        cart_item.updated_at = datetime.utcnow()
+                    else:
+                        cart_item = CartItem(
+                            cart_id=cart_id,
+                            product_id=product_id,
+                            quantity=quantity
+                        )
+                        session.add(cart_item)
+                    
+                    await session.commit()
+                    await session.refresh(cart_item)
+                    
+                    return {
+                        'id': cart_item.id,
+                        'cart_id': cart_item.cart_id,
+                        'product_id': cart_item.product_id,
+                        'quantity': cart_item.quantity,
+                        'created_at': cart_item.created_at,
+                        'updated_at': cart_item.updated_at
+                    }
+                except Exception as e:
+                    await session.rollback()
+                    logger.error(f"Error adding item to cart: {e}")
+                    raise
+                finally:
+                    break
     
-    async def remove_item_from_cart(self, user_id: str, item_data: RemoveFromCartRequest) -> Cart:
-        """Remove an item from the user's cart.
-        
-        This method removes a specific item from the user's cart based on
-        the product ID. If the item doesn't exist in the cart, the cart
-        is returned unchanged.
-        
-        Args:
-            user_id: The ID of the user whose cart to modify
-            item_data: The data identifying which product to remove
-            
-        Returns:
-            Cart: The updated cart with all items
+    async def remove_item_from_cart(
+        self, 
+        user_id: str, 
+        product_id: int
+    ) -> Dict[str, Any]:
         """
-        cart = await self.get_or_create_cart(user_id)
-        
-        # Find and remove the item
-        result = await self.db.execute(
-            select(CartItem).where(
-                CartItem.cart_id == cart.id,
-                CartItem.product_id == item_data.product_id
-            )
-        )
-        cart_item = result.scalar_one_or_none()
-        
-        if cart_item:
-            await self.db.delete(cart_item)
-            await self.db.commit()
-        
-        # Return updated cart
-        return await self.get_cart_with_items(user_id)
-    
-    async def clear_cart(self, user_id: str) -> Cart:
-        """Remove all items from the user's cart.
-        
-        This method removes all items from the user's cart, leaving an
-        empty cart. The cart itself is not deleted, only the items in it.
-        
-        Args:
-            user_id: The ID of the user whose cart to clear
-            
-        Returns:
-            Cart: The updated (empty) cart
+        Remove an item from user's cart.
+        Uses dual-write if enabled.
         """
-        cart = await self.get_or_create_cart(user_id)
-        
-        # Delete all items in the cart
-        await self.db.execute(
-            CartItem.__table__.delete().where(CartItem.cart_id == cart.id)
-        )
-        
-        # Also remove any applied promo codes
-        await self.db.execute(
-            CartPromoCode.__table__.delete().where(CartPromoCode.cart_id == cart.id)
-        )
-        
-        await self.db.commit()
-        
-        # Return updated cart
-        return await self.get_cart_with_items(user_id)
-    
-    async def apply_promo_code(self, user_id: str, promo_data: ApplyPromoCodeRequest) -> Cart:
-        """Apply a promo code to the user's cart.
-        
-        This method applies a promo code to the user's cart if it's valid.
-        
-        Args:
-            user_id: The ID of the user whose cart to modify
-            promo_data: The promo code to apply
-            
-        Returns:
-            Cart: The updated cart with promo code applied
-            
-        Raises:
-            HTTPException: If the promo code is invalid or not found (404)
-        """
-        # Get or create cart
-        cart = await self.get_or_create_cart(user_id)
-        
-        # Check if promo code exists and is valid
-        result = await self.db.execute(
-            select(PromoCode).where(
-                and_(
-                    PromoCode.code == promo_data.code,
-                    PromoCode.is_active == True
-                )
+        # Get user's cart
+        async for session in get_db():
+            cart_result = await session.execute(
+                select(Cart).where(Cart.user_id == user_id)
             )
-        )
-        promo_code = result.scalar_one_or_none()
-        
-        if not promo_code:
-            raise HTTPException(status_code=404, detail="Promo code not found or inactive")
-        
-        # Refresh the promo_code to get actual values instead of Column objects
-        await self.db.refresh(promo_code)
-        
-        # Extract values using getattr to avoid SQLAlchemy column expression issues
-        valid_until = getattr(promo_code, 'valid_until', None)
-        valid_from = getattr(promo_code, 'valid_from', None)
-        max_uses = getattr(promo_code, 'max_uses', None)
-        used_count = getattr(promo_code, 'used_count', 0) or 0
-        
-        # Check if promo code has expired
-        from datetime import datetime
-        if valid_until and valid_until < datetime.utcnow().replace(tzinfo=valid_until.tzinfo):
-            raise HTTPException(status_code=400, detail="Promo code has expired")
-        
-        if valid_from and valid_from > datetime.utcnow().replace(tzinfo=valid_from.tzinfo):
-            raise HTTPException(status_code=400, detail="Promo code is not yet valid")
-        
-        # Check if promo code has reached max uses
-        if max_uses and used_count >= max_uses:
-            raise HTTPException(status_code=400, detail="Promo code has reached maximum uses")
-        
-        # Check if promo code is already applied to this cart
-        result = await self.db.execute(
-            select(CartPromoCode).where(
-                CartPromoCode.cart_id == cart.id,
-                CartPromoCode.promo_code_id == promo_code.id
-            )
-        )
-        existing_cart_promo = result.scalar_one_or_none()
-        
-        if not existing_cart_promo:
-            # Apply promo code to cart
-            cart_promo_code = CartPromoCode(
-                cart_id=cart.id,
-                promo_code_id=promo_code.id
-            )
-            self.db.add(cart_promo_code)
+            cart = cart_result.scalar_one_or_none()
             
-            # Increment used count for promo code using setattr
-            new_used_count = used_count + 1
-            setattr(promo_code, 'used_count', new_used_count)
+            if not cart:
+                raise Exception("Cart not found")
             
-            await self.db.commit()
-            await self.db.refresh(cart_promo_code)
-            await self.db.refresh(promo_code)
+            cart_id = cart.id
+            break
         
-        # Return updated cart
-        return await self.get_cart_with_items(user_id)
+        dual_write_manager = await self._get_dual_write_manager()
+        
+        if dual_write_manager:
+            # Use dual-write
+            result = await dual_write_manager.remove_cart_item(cart_id, product_id)
+            
+            return {
+                'success': result.success,
+                'dual_write_result': result.to_dict()
+            }
+        else:
+            # Single database write
+            async for session in get_db():
+                try:
+                    result = await session.execute(
+                        select(CartItem).where(
+                            CartItem.cart_id == cart_id,
+                            CartItem.product_id == product_id
+                        )
+                    )
+                    cart_item = result.scalar_one_or_none()
+                    
+                    if cart_item:
+                        await session.delete(cart_item)
+                        await session.commit()
+                    
+                    return {'success': True}
+                except Exception as e:
+                    await session.rollback()
+                    logger.error(f"Error removing item from cart: {e}")
+                    raise
+                finally:
+                    break
     
-    async def remove_promo_code(self, user_id: str) -> Cart:
-        """Remove applied promo code from the user's cart.
-        
-        This method removes any applied promo codes from the user's cart.
-        
-        Args:
-            user_id: The ID of the user whose cart to modify
-            
-        Returns:
-            Cart: The updated cart with promo code removed
-        """
-        # Get or create cart
-        cart = await self.get_or_create_cart(user_id)
-        
-        # Remove all promo codes from cart
-        await self.db.execute(
-            CartPromoCode.__table__.delete().where(CartPromoCode.cart_id == cart.id)
-        )
-        
-        await self.db.commit()
-        
-        # Return updated cart
-        return await self.get_cart_with_items(user_id)
-    
-    # Wishlist Methods
-    
-    async def get_wishlist_with_items(self, user_id: str) -> Wishlist:
-        """Get user's wishlist with all items and product details.
-        
-        This method retrieves a user's wishlist and populates it with all items.
-        It also fetches product details for each item from the Product service.
-        
-        Args:
-            user_id: The ID of the user whose wishlist to retrieve
-            
-        Returns:
-            Wishlist: The user's wishlist with items and product details
-        """
-        wishlist = await self.get_or_create_wishlist(user_id)
-        
-        # Load wishlist with items using selectinload to avoid lazy loading issues
-        result = await self.db.execute(
-            select(Wishlist)
-            .options(selectinload(Wishlist.items))
-            .where(Wishlist.id == wishlist.id)
-        )
-        wishlist_with_items = result.scalar_one()
-        
-        # Use the wishlist with properly loaded items
-        wishlist = wishlist_with_items
-        
-        # Load product details for each item
-        for item in wishlist.items:
+    async def get_cart_contents(self, user_id: str) -> Dict[str, Any]:
+        """Get cart contents for a user"""
+        async for session in get_db():
             try:
-                product = await ProductService.get_product(item.product_id)
-                setattr(item, 'product', product)
-            except HTTPException:
-                # If product is not found, we might want to remove it from the wishlist
-                # For now, we'll just skip it
-                pass
-        
-        return wishlist
+                # Get cart with items
+                cart_result = await session.execute(
+                    select(Cart).where(Cart.user_id == user_id)
+                )
+                cart = cart_result.scalar_one_or_none()
+                
+                if not cart:
+                    return {
+                        'cart_id': None,
+                        'user_id': user_id,
+                        'items': [],
+                        'total_items': 0
+                    }
+                
+                # Get cart items
+                items_result = await session.execute(
+                    select(CartItem).where(CartItem.cart_id == cart.id)
+                )
+                items = items_result.scalars().all()
+                
+                cart_items = []
+                for item in items:
+                    cart_items.append({
+                        'id': item.id,
+                        'product_id': item.product_id,
+                        'quantity': item.quantity,
+                        'created_at': item.created_at,
+                        'updated_at': item.updated_at
+                    })
+                
+                return {
+                    'cart_id': cart.id,
+                    'user_id': cart.user_id,
+                    'items': cart_items,
+                    'total_items': len(cart_items),
+                    'created_at': cart.created_at,
+                    'updated_at': cart.updated_at
+                }
+            except Exception as e:
+                logger.error(f"Error getting cart contents for user {user_id}: {e}")
+                raise
+            finally:
+                break
     
-    async def add_item_to_wishlist(self, user_id: str, item_data: AddToWishlistRequest) -> Wishlist:
-        """Add an item to the user's wishlist.
-        
-        This method adds a new item to the user's wishlist. It first verifies 
-        that the product exists by calling the Product service.
-        
-        Args:
-            user_id: The ID of the user whose wishlist to modify
-            item_data: The data for the item to add to the wishlist
-            
-        Returns:
-            Wishlist: The updated wishlist with all items
-            
-        Raises:
-            HTTPException: If the product is not found (404)
-        """
-        # First, verify the product exists
-        try:
-            product = await ProductService.get_product(item_data.product_id)
-        except HTTPException:
-            raise HTTPException(status_code=404, detail="Product not found")
-        
-        # Get or create wishlist
-        wishlist = await self.get_or_create_wishlist(user_id)
-        
-        # Check if item already exists in wishlist
-        result = await self.db.execute(
-            select(WishlistItem).where(
-                WishlistItem.wishlist_id == wishlist.id,
-                WishlistItem.product_id == item_data.product_id
-            )
-        )
-        wishlist_item = result.scalar_one_or_none()
-        
-        if not wishlist_item:
-            # Create new wishlist item
-            wishlist_item = WishlistItem(
-                wishlist_id=wishlist.id,
-                product_id=item_data.product_id
-            )
-            self.db.add(wishlist_item)
-        
-        await self.db.commit()
-        await self.db.refresh(wishlist_item)
-        
-        # Return updated wishlist
-        return await self.get_wishlist_with_items(user_id)
+    async def clear_cart(self, user_id: str) -> Dict[str, Any]:
+        """Clear all items from user's cart"""
+        async for session in get_db():
+            try:
+                # Get cart
+                cart_result = await session.execute(
+                    select(Cart).where(Cart.user_id == user_id)
+                )
+                cart = cart_result.scalar_one_or_none()
+                
+                if not cart:
+                    return {'success': True, 'message': 'Cart not found'}
+                
+                # Delete all cart items
+                await session.execute(
+                    delete(CartItem).where(CartItem.cart_id == cart.id)
+                )
+                
+                await session.commit()
+                
+                return {'success': True, 'message': 'Cart cleared'}
+            except Exception as e:
+                await session.rollback()
+                logger.error(f"Error clearing cart for user {user_id}: {e}")
+                raise
+            finally:
+                break
     
-    async def remove_item_from_wishlist(self, user_id: str, item_data: RemoveFromCartRequest) -> Wishlist:
-        """Remove an item from the user's wishlist.
-        
-        This method removes a specific item from the user's wishlist based on
-        the product ID. If the item doesn't exist in the wishlist, the wishlist
-        is returned unchanged.
-        
-        Args:
-            user_id: The ID of the user whose wishlist to modify
-            item_data: The data identifying which product to remove
-            
-        Returns:
-            Wishlist: The updated wishlist with all items
+    async def sync_user_data(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        wishlist = await self.get_or_create_wishlist(user_id)
-        
-        # Find and remove the item
-        result = await self.db.execute(
-            select(WishlistItem).where(
-                WishlistItem.wishlist_id == wishlist.id,
-                WishlistItem.product_id == item_data.product_id
-            )
-        )
-        wishlist_item = result.scalar_one_or_none()
-        
-        if wishlist_item:
-            await self.db.delete(wishlist_item)
-            await self.db.commit()
-        
-        # Return updated wishlist
-        return await self.get_wishlist_with_items(user_id)
-    
-    async def move_item_from_wishlist_to_cart(self, user_id: str, move_data: MoveToCartRequest) -> dict:
-        """Move an item from wishlist to cart.
-        
-        This method moves a specific item from the user's wishlist to their cart.
-        
-        Args:
-            user_id: The ID of the user whose wishlist and cart to modify
-            move_data: The data identifying which product to move and quantity
-            
-        Returns:
-            dict: A message indicating success
+        Sync user data to cart service database.
+        This is used when user data changes in the auth service.
         """
-        # First, verify the product exists
-        try:
-            product = await ProductService.get_product(move_data.product_id)
-        except HTTPException:
-            raise HTTPException(status_code=404, detail="Product not found")
+        dual_write_manager = await self._get_dual_write_manager()
         
-        # Get or create wishlist and cart
-        wishlist = await self.get_or_create_wishlist(user_id)
-        cart = await self.get_or_create_cart(user_id)
-        
-        # Check if item exists in wishlist
-        result = await self.db.execute(
-            select(WishlistItem).where(
-                WishlistItem.wishlist_id == wishlist.id,
-                WishlistItem.product_id == move_data.product_id
-            )
-        )
-        wishlist_item = result.scalar_one_or_none()
-        
-        if not wishlist_item:
-            raise HTTPException(status_code=404, detail="Item not found in wishlist")
-        
-        # Check if item already exists in cart
-        result = await self.db.execute(
-            select(CartItem).where(
-                CartItem.cart_id == cart.id,
-                CartItem.product_id == move_data.product_id
-            )
-        )
-        cart_item = result.scalar_one_or_none()
-        
-        if cart_item:
-            # Update quantity in cart
-            new_quantity = cart_item.quantity + move_data.quantity
-            setattr(cart_item, 'quantity', new_quantity)
+        if dual_write_manager:
+            result = await dual_write_manager.sync_user(user_data)
+            return {
+                'success': result.success,
+                'dual_write_result': result.to_dict()
+            }
         else:
-            # Create new cart item
-            cart_item = CartItem(
-                cart_id=cart.id,
-                product_id=move_data.product_id,
-                quantity=move_data.quantity
-            )
-            self.db.add(cart_item)
-        
-        # Remove item from wishlist
-        await self.db.delete(wishlist_item)
-        
-        await self.db.commit()
-        await self.db.refresh(cart_item)
-        
-        return {"message": "Item moved from wishlist to cart successfully"}
+            # Single database write
+            async for session in get_db():
+                try:
+                    existing_user = await session.execute(
+                        select(User).where(User.uid == user_data['uid'])
+                    )
+                    user = existing_user.scalar_one_or_none()
+                    
+                    if user:
+                        # Update existing user
+                        for key, value in user_data.items():
+                            if hasattr(user, key):
+                                setattr(user, key, value)
+                        user.updated_at = datetime.utcnow()
+                    else:
+                        # Create new user
+                        user = User(**user_data)
+                        session.add(user)
+                    
+                    await session.commit()
+                    
+                    return {'success': True}
+                except Exception as e:
+                    await session.rollback()
+                    logger.error(f"Error syncing user data: {e}")
+                    raise
+                finally:
+                    break
     
-    async def clear_wishlist(self, user_id: str) -> dict:
-        """Remove all items from the user's wishlist.
+    async def get_dual_write_status(self) -> Dict[str, Any]:
+        """Get dual-write status and health information"""
+        dual_write_manager = await self._get_dual_write_manager()
         
-        This method removes all items from the user's wishlist.
-        
-        Args:
-            user_id: The ID of the user whose wishlist to clear
-            
-        Returns:
-            dict: A message indicating success
-        """
-        wishlist = await self.get_or_create_wishlist(user_id)
-        
-        # Delete all items in the wishlist
-        await self.db.execute(
-            WishlistItem.__table__.delete().where(WishlistItem.wishlist_id == wishlist.id)
-        )
-        await self.db.commit()
-        
-        return {"message": "Wishlist cleared successfully"}
+        if dual_write_manager:
+            health_status = await dual_write_manager.health_check()
+            return {
+                'dual_write_enabled': True,
+                'health_status': health_status
+            }
+        else:
+            return {
+                'dual_write_enabled': False,
+                'message': 'Dual-write not configured or disabled'
+            }

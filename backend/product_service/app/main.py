@@ -25,13 +25,38 @@ async def startup_event():
     """Initialize database tables on startup"""
     await init_db()
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up database connections on shutdown"""
+    from app.core.database import close_db
+    await close_db()
+
 # Include API routes
 app.include_router(api_router)
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Basic health check including database connectivity"""
+    from app.core.database import check_database_health
+    
+    db_healthy = await check_database_health()
+    
+    return {
+        "status": "healthy" if db_healthy else "unhealthy",
+        "service": "product-service",
+        "version": "1.0.0",
+        "database": {
+            "status": "connected" if db_healthy else "disconnected",
+            "database_name": "product_db"
+        }
+    }
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with connection pool and database metrics"""
+    from app.utils.db_monitor import comprehensive_health_check
+    
+    return await comprehensive_health_check()
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,0 +1,58 @@
+{
+  "summary": {
+    "total_tests": 4,
+    "passed_tests": 1,
+    "failed_tests": 3,
+    "success_rate": 25.0
+  },
+  "test_results": [
+    {
+      "test_name": "config_validation",
+      "success": true,
+      "details": {
+        "settings": {
+          "enabled": true,
+          "write_to_legacy": true,
+          "write_to_new": true,
+          "fail_on_legacy_error": false,
+          "fail_on_new_error": true,
+          "validate_sync": true,
+          "sync_validation_interval": 300,
+          "async_legacy_writes": true,
+          "batch_size": 100,
+          "log_all_operations": false,
+          "log_errors_only": true,
+          "metrics_enabled": true
+        }
+      },
+      "timestamp": "2025-09-28T17:20:27.659010"
+    },
+    {
+      "test_name": "cart_service_dual_write",
+      "success": false,
+      "details": {
+        "error": "8 validation errors for Settings\nfirebase_project_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_private_key_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_private_key\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_email\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_auth_uri\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_token_uri\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_cert_url\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing",
+        "type": "ValidationError"
+      },
+      "timestamp": "2025-09-28T17:20:28.395377"
+    },
+    {
+      "test_name": "auth_service_dual_write",
+      "success": false,
+      "details": {
+        "error": "10 validation errors for Settings\nfirebase_project_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_private_key_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_private_key\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_email\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_auth_uri\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_token_uri\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_cert_url\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\ndatabase_url\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nlegacy_database_url\n  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.5/v/string_type",
+        "type": "ValidationError"
+      },
+      "timestamp": "2025-09-28T17:20:28.424948"
+    },
+    {
+      "test_name": "product_service_dual_write",
+      "success": false,
+      "details": {
+        "error": "8 validation errors for Settings\nfirebase_project_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_private_key_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_private_key\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_email\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_id\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_auth_uri\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_token_uri\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing\nfirebase_client_cert_url\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.5/v/missing",
+        "type": "ValidationError"
+      },
+      "timestamp": "2025-09-28T17:20:28.441669"
+    }
+  ]
+}

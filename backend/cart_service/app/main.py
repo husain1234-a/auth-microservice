@@ -54,6 +54,19 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
+# Database lifecycle events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    from app.core.database import init_db
+    await init_db()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up database connections on shutdown"""
+    from app.core.database import close_db
+    await close_db()
+
 # Include API routes with version prefix
 app.include_router(api.router, prefix="/api/v1")
 
@@ -68,16 +81,35 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Health check endpoint for service monitoring.
+    """Basic health check including database connectivity.
     
     Returns:
-        dict: Status information about the service
+        dict: Status information about the service including database health
     """
+    from app.core.database import check_database_health
+    
+    db_healthy = await check_database_health()
+    
     return {
-        "status": "healthy",
+        "status": "healthy" if db_healthy else "unhealthy",
         "service": "cart-service",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "database": {
+            "status": "connected" if db_healthy else "disconnected",
+            "database_name": "cart_db"
+        }
     }
+
+@app.get("/health/detailed", tags=["Health"])
+async def detailed_health_check():
+    """Detailed health check with connection pool and database metrics.
+    
+    Returns:
+        dict: Comprehensive health information including pool status
+    """
+    from app.utils.db_monitor import comprehensive_health_check
+    
+    return await comprehensive_health_check()
 
 @app.post("/test-auth", tags=["Health"])
 async def test_auth(request: Request):

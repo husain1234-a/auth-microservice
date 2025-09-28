@@ -1,31 +1,78 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from config.settings import settings
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 
-# Create async engine
+from sqlalchemy import text
+from config.settings import settings
+import logging
+from typing import AsyncGenerator
+
+logger = logging.getLogger(__name__)
+
+# Create a shared Base class for all models
+Base = declarative_base()
+
+# Create async engine with connection pooling
 engine = create_async_engine(
     settings.database_url,
     echo=True if settings.environment == "development" else False,
-    future=True
+    future=True,
+    pool_pre_ping=True,  # Validates connections before use
 )
 
 # Create async session factory
-AsyncSessionLocal = sessionmaker(
-    engine, 
-    class_=AsyncSession, 
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
     expire_on_commit=False
 )
 
 # Dependency to get database session
-async def get_db():
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Database session error: {e}")
+            raise
         finally:
             await session.close()
 
+# Database health check
+async def check_database_health() -> bool:
+    """
+    Check if the database connection is healthy.
+    Returns True if healthy, False otherwise.
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            # Execute a simple query to test connection
+            result = await session.execute(text("SELECT 1"))
+            result.scalar()
+            logger.info("Auth Service database health check: OK")
+            return True
+    except Exception as e:
+        logger.error(f"Auth Service database health check failed: {e}")
+        return False
+
 # Initialize database
 async def init_db():
-    from .models.user import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Initialize database tables"""
+    try:
+        from .models.user import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Auth Service database initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Auth Service database: {e}")
+        raise
+
+# Close database connections
+async def close_db():
+    """Close database engine and all connections"""
+    try:
+        await engine.dispose()
+        logger.info("Auth Service database connections closed")
+    except Exception as e:
+        logger.error(f"Error closing Auth Service database connections: {e}")
+        raise
