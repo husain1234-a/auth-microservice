@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.services.category_service import CategoryService
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
-from app.core.security import verify_admin_token
+from app.core.firebase_auth import get_current_user_id
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -26,10 +26,11 @@ async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
 async def create_category(
     name: str = Form(...),
     image: Optional[UploadFile] = File(None),
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new product category (Admin only)"""
-    # In a real implementation, you would verify the admin token here
+    # TODO: Verify admin role
     # For now, we're just creating the category
     
     # Create category data
@@ -59,10 +60,11 @@ async def update_category(
     name: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     is_active: Optional[bool] = Form(None),
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Update an existing product category (Admin only)"""
-    # In a real implementation, you would verify the admin token here
+    # TODO: Verify admin role
     # For now, we're just updating the category
     
     # Only include non-None values in the update

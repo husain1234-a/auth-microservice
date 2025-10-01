@@ -6,50 +6,63 @@ It handles HTTP requests to fetch product information needed for cart operations
 """
 
 import aiohttp
-from fastapi import HTTPException
+import logging
+from typing import Optional
+from cachetools import TTLCache
 from app.core.config import settings
 from app.schemas.product import ProductResponse
+from app.utils.circuit_breaker import circuit_breakers
 
-class ProductService:
-    """Service class for communicating with the Product microservice.
+logger = logging.getLogger(__name__)
+
+# Create a TTL cache that expires items after 5 minutes
+_product_cache = TTLCache(maxsize=1000, ttl=300)
+
+async def get_product(product_id: int) -> Optional[ProductResponse]:
+    """Fetch a product by its ID from the Product service with caching and circuit breaker."""
+    # Check cache first
+    cache_key = f"product_{product_id}"
+    if cache_key in _product_cache:
+        logger.info(f"Cache hit for product {product_id}")
+        return _product_cache[cache_key]
     
-    This service provides methods for fetching product information from
-    the Product microservice via HTTP requests. It handles error cases
-    and translates them to appropriate HTTP exceptions.
-    """
+    # Use circuit breaker for service call
+    circuit_breaker = circuit_breakers["product_service"]
     
-    @staticmethod
-    async def get_product(product_id: int) -> ProductResponse:
-        """Fetch a product by its ID from the Product service.
-        
-        This method makes an HTTP GET request to the Product service to
-        retrieve information about a specific product. It handles various
-        error cases and translates them to appropriate HTTP exceptions.
-        
-        Args:
-            product_id: The ID of the product to fetch
-            
-        Returns:
-            ProductResponse: The product information
-            
-        Raises:
-            HTTPException: If the product is not found (404) or if there
-                          is a service communication error (503)
-        """
+    async def _fetch_product():
         async with aiohttp.ClientSession() as session:
             try:
-                # Make HTTP request to Product service
+                logger.info(f"Fetching product {product_id} from product service")
                 async with session.get(f"{settings.product_service_url}/api/products/{product_id}") as response:
                     if response.status == 200:
-                        # Parse successful response
                         data = await response.json()
-                        return ProductResponse(**data)
+                        product = ProductResponse(**data)
+                        # Cache the result
+                        _product_cache[cache_key] = product
+                        return product
                     elif response.status == 404:
-                        # Product not found
-                        raise HTTPException(status_code=404, detail="Product not found")
+                        logger.warning(f"Product {product_id} not found")
+                        return None
                     else:
-                        # Other error from Product service
-                        raise HTTPException(status_code=response.status, detail="Product service error")
-            except aiohttp.ClientError:
-                # Network error or service unavailable
-                raise HTTPException(status_code=503, detail="Product service unavailable")
+                        logger.error(f"Product service error: {response.status}")
+                        raise Exception(f"Product service returned status {response.status}")
+            except aiohttp.ClientError as e:
+                logger.error(f"Failed to connect to product service: {e}")
+                raise e
+    
+    try:
+        return await circuit_breaker.call_async(_fetch_product)
+    except Exception as e:
+        logger.error(f"Circuit breaker prevented call to product service: {e}")
+        return None
+
+def invalidate_product_cache(product_id: int):
+    """Invalidate a specific product in the cache."""
+    cache_key = f"product_{product_id}"
+    _product_cache.pop(cache_key, None)
+    logger.info(f"Invalidated cache for product {product_id}")
+
+# Call this function when products are updated
+def notify_product_update(product_id: int):
+    """Notify that a product has been updated and invalidate cache."""
+    invalidate_product_cache(product_id)

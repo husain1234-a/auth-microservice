@@ -4,6 +4,8 @@ from sqlalchemy.future import select
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
 from typing import Sequence
+# Add event publisher import
+from app.services.event_publisher import EventPublisher
 
 
 class CategoryService:
@@ -32,7 +34,7 @@ class CategoryService:
 
     @staticmethod
     async def update_category(db: AsyncSession, category_id: int, category_update: CategoryUpdate) -> Optional[Category]:
-        """Update category"""
+        """Update category and publish event."""
         result = await db.execute(select(Category).where(Category.id == category_id))
         db_category = result.scalar_one_or_none()
         if not db_category:
@@ -44,6 +46,15 @@ class CategoryService:
             
         await db.commit()
         await db.refresh(db_category)
+        
+        # Publish event about category update
+        event_payload = {
+            "category_id": category_id,
+            "name": getattr(db_category, 'name', ''),
+            "is_active": getattr(db_category, 'is_active', True)
+        }
+        await EventPublisher.publish_event("category.updated", event_payload)
+        
         return db_category
 
     @staticmethod

@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.services.product_service import ProductService
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
-from app.core.security import verify_admin_token
+from app.core.firebase_auth import get_current_user_id
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -38,10 +38,11 @@ async def create_product(
     stock_quantity: int = Form(0),
     unit: Optional[str] = Form(None),
     image: UploadFile = File(None),
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new product (Admin only)"""
-    # In a real implementation, you would verify the admin token here
+    # TODO: Verify admin role
     # For now, we're just creating the product
     
     # Create a dictionary with only the provided values
@@ -88,10 +89,11 @@ async def update_product(
     unit: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(None),
     image: UploadFile = File(None),
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Update an existing product (Admin only)"""
-    # In a real implementation, you would verify the admin token here
+    # TODO: Verify admin role
     # For now, we're just updating the product
     
     # Only include non-None values in the update
@@ -132,9 +134,9 @@ async def update_product(
     return product
 
 @router.delete("/{product_id}")
-async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_product(product_id: int, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     """Delete a product (soft delete - set is_active to false) (Admin only)"""
-    # In a real implementation, you would verify the admin token here
+    # TODO: Verify admin role
     # For now, we're just deleting the product
     
     success = await ProductService.delete_product(db, product_id)

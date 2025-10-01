@@ -8,10 +8,11 @@ It sets up routes, middleware, and application-level configurations.
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import api
+from app.routes import internal  # Add internal routes
 import time
 
 # Import models to ensure they're registered with SQLAlchemy
-from app.models import user, cart
+from app.models import cart  # Remove user import since we deleted the user model
 
 # Initialize FastAPI application with metadata
 app = FastAPI(
@@ -56,6 +57,8 @@ app.add_middleware(
 
 # Include API routes with version prefix
 app.include_router(api.router, prefix="/api/v1")
+# Include internal routes
+app.include_router(internal.router)
 
 @app.get("/", tags=["Health"])
 async def root():
