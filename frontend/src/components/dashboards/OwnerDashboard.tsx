@@ -335,7 +335,10 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                     <div>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Products Management</h2>
-                            <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <button
+                                onClick={() => window.location.href = '/dashboard/products'}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                            >
                                 + Add Product
                             </button>
                         </div>
@@ -441,7 +444,10 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
                     <div>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Categories Management</h2>
-                            <button className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <button
+                                onClick={() => window.location.href = '/dashboard/categories'}
+                                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                            >
                                 + Add Category
                             </button>
                         </div>

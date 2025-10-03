@@ -1,6 +1,5 @@
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from app.models.cart import Cart, CartItem, Wishlist, WishlistItem, PromoCode, CartPromoCode
 from app.schemas.cart import (
     AddToCartRequest, 
@@ -85,16 +84,11 @@ class CartService:
         """
         cart = await self.get_or_create_cart(user_id)
         
-        # Load cart with items using selectinload to avoid lazy loading issues
+        # Load cart items manually since we removed relationships
         result = await self.db.execute(
-            select(Cart)
-            .options(selectinload(Cart.items))
-            .where(Cart.id == cart.id)
+            select(CartItem).where(CartItem.cart_id == cart.id)
         )
-        cart_with_items = result.scalar_one()
-        
-        # Use the cart with properly loaded items
-        cart = cart_with_items
+        cart.items = result.scalars().all()
         
         # Load applied promo codes
         promo_result = await self.db.execute(
@@ -399,16 +393,11 @@ class CartService:
         """
         wishlist = await self.get_or_create_wishlist(user_id)
         
-        # Load wishlist with items using selectinload to avoid lazy loading issues
+        # Load wishlist items manually since we removed relationships
         result = await self.db.execute(
-            select(Wishlist)
-            .options(selectinload(Wishlist.items))
-            .where(Wishlist.id == wishlist.id)
+            select(WishlistItem).where(WishlistItem.wishlist_id == wishlist.id)
         )
-        wishlist_with_items = result.scalar_one()
-        
-        # Use the wishlist with properly loaded items
-        wishlist = wishlist_with_items
+        wishlist.items = result.scalars().all()
         
         # Load product details for each item
         for item in wishlist.items:

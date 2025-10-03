@@ -81,23 +81,24 @@ async def health_check():
 
 @app.post("/test-auth", tags=["Health"])
 async def test_auth(request: Request):
-    """Test endpoint to check Firebase token verification.
+    """Test endpoint to check session cookie verification.
     
     Returns:
-        dict: Token verification result
+        dict: Session verification result
     """
     try:
         from app.core.security import get_current_user_id
-        from fastapi import Header
+        from fastapi import Cookie
+        from typing import Optional
         
-        # Get authorization header
-        auth_header = request.headers.get("authorization")
-        if not auth_header:
-            return {"error": "No authorization header provided", "headers": dict(request.headers)}
+        # Get session cookie
+        session_cookie: Optional[str] = request.cookies.get("auth_session")
+        if not session_cookie:
+            return {"error": "No session cookie provided", "cookies": dict(request.cookies)}
         
-        # Try to verify the token
-        user_id = await get_current_user_id(auth_header)
+        # Try to verify the session
+        user_id = await get_current_user_id(session_cookie=session_cookie)
         return {"success": True, "user_id": user_id}
         
     except Exception as e:
-        return {"error": str(e), "type": type(e).__name__, "headers": dict(request.headers)}
+        return {"error": str(e), "type": type(e).__name__, "cookies": dict(request.cookies)}

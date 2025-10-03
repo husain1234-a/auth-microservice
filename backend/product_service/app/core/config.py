@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     debug: bool = True
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
+    # Auth Service
+    auth_service_url: str = "http://localhost:8001"
+    
     # Cloudflare R2
     r2_endpoint_url: str = "https://27092aebbf9f81d4598314d98e346ef5.r2.cloudflarestorage.com"
     r2_access_key_id: str = "236addec90677dca275aa7d5deade31e"

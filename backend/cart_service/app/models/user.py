@@ -1,5 +1,4 @@
 from sqlalchemy import Column, String, Boolean, DateTime, func
-from sqlalchemy.orm import relationship
 from app.core.database import Base
 import datetime
 
@@ -16,9 +15,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     
-    # Relationships (using string references to avoid circular imports)
-    carts = relationship('Cart', back_populates='user', cascade='all, delete-orphan')
-    wishlists = relationship('Wishlist', back_populates='user', cascade='all, delete-orphan')
+    # Removed relationships to avoid joins
     
     def __repr__(self):
         return f"<User(uid={self.uid}, email={self.email}, display_name={self.display_name})>"

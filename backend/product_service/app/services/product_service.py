@@ -2,9 +2,7 @@ from typing import List, Optional, Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
-from sqlalchemy.orm import selectinload
 from app.models.product import Product
-from app.models.category import Category
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
@@ -18,8 +16,7 @@ class ProductService:
         search: Optional[str] = None
     ) -> Sequence[Product]:
         """Get all products with optional filtering"""
-        # Use selectinload to eagerly load the category relationship
-        query = select(Product).options(selectinload(Product.category))
+        query = select(Product)
         
         # Apply filters
         if category_id:
@@ -36,10 +33,7 @@ class ProductService:
     @staticmethod
     async def get_product(db: AsyncSession, product_id: int) -> Optional[Product]:
         """Get product by ID"""
-        # Use selectinload to eagerly load the category relationship
-        result = await db.execute(
-            select(Product).options(selectinload(Product.category)).where(Product.id == product_id)
-        )
+        result = await db.execute(select(Product).where(Product.id == product_id))
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -51,12 +45,7 @@ class ProductService:
         db.add(db_product)
         await db.commit()
         await db.refresh(db_product)
-        
-        # After refreshing, fetch the product again with the category relationship loaded
-        result = await db.execute(
-            select(Product).options(selectinload(Product.category)).where(Product.id == db_product.id)
-        )
-        return result.scalar_one()
+        return db_product
         
     @staticmethod
     async def update_product(db: AsyncSession, product_id: int, product_update: ProductUpdate) -> Optional[Product]:
@@ -72,12 +61,7 @@ class ProductService:
             
         await db.commit()
         await db.refresh(db_product)
-        
-        # After refreshing, fetch the product again with the category relationship loaded
-        result = await db.execute(
-            select(Product).options(selectinload(Product.category)).where(Product.id == db_product.id)
-        )
-        return result.scalar_one()
+        return db_product
 
     @staticmethod
     async def delete_product(db: AsyncSession, product_id: int) -> bool:

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
 from app.services.product_service import ProductService
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
-from app.core.security import verify_admin_token
+from app.core.auth_client import AuthClient
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -38,11 +38,14 @@ async def create_product(
     stock_quantity: int = Form(0),
     unit: Optional[str] = Form(None),
     image: UploadFile = File(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
 ):
     """Create a new product (Admin only)"""
-    # In a real implementation, you would verify the admin token here
-    # For now, we're just creating the product
+    # Verify admin token
+    is_admin = await AuthClient.verify_admin(session_cookie)
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
     # Create a dictionary with only the provided values
     product_data = {
@@ -88,11 +91,14 @@ async def update_product(
     unit: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(None),
     image: UploadFile = File(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
 ):
     """Update an existing product (Admin only)"""
-    # In a real implementation, you would verify the admin token here
-    # For now, we're just updating the product
+    # Verify admin token
+    is_admin = await AuthClient.verify_admin(session_cookie)
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
     # Only include non-None values in the update
     update_data = {}
@@ -132,10 +138,16 @@ async def update_product(
     return product
 
 @router.delete("/{product_id}")
-async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_product(
+    product_id: int, 
+    db: AsyncSession = Depends(get_db),
+    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
+):
     """Delete a product (soft delete - set is_active to false) (Admin only)"""
-    # In a real implementation, you would verify the admin token here
-    # For now, we're just deleting the product
+    # Verify admin token
+    is_admin = await AuthClient.verify_admin(session_cookie)
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
     success = await ProductService.delete_product(db, product_id)
     if not success:

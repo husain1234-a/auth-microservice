@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, Numeric, Boolean, ForeignKey, CheckConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, Boolean, CheckConstraint, UniqueConstraint
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Cart(Base):
@@ -10,12 +9,9 @@ class Cart(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    user_id = Column(String(255), ForeignKey("users.uid", ondelete="CASCADE"), nullable=False, unique=True)
+    user_id = Column(String(255), nullable=False, unique=True)
     
-    # Relationships (using string references to avoid circular imports)
-    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
-    promo_codes = relationship("CartPromoCode", back_populates="cart", cascade="all, delete-orphan")
-    user = relationship("User", back_populates="carts")
+    # Removed relationships to avoid joins
     
     def __repr__(self):
         return f"<Cart(id={self.id}, user_id={self.user_id})>"
@@ -27,12 +23,11 @@ class CartItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    cart_id = Column(Integer, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
+    cart_id = Column(Integer, nullable=False)
     product_id = Column(Integer, nullable=False)
     quantity = Column(Integer, CheckConstraint('quantity > 0'), nullable=False, default=1)
     
-    # Relationships (using string references to avoid circular imports)
-    cart = relationship("Cart", back_populates="items")
+    # Removed relationships to avoid joins
     
     __table_args__ = (
         # Unique constraint to prevent duplicate products in the same cart
@@ -49,11 +44,9 @@ class Wishlist(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    user_id = Column(String(255), ForeignKey("users.uid", ondelete="CASCADE"), nullable=False, unique=True)
+    user_id = Column(String(255), nullable=False, unique=True)
     
-    # Relationships (using string references to avoid circular imports)
-    items = relationship("WishlistItem", back_populates="wishlist", cascade="all, delete-orphan")
-    user = relationship("User", back_populates="wishlists")
+    # Removed relationships to avoid joins
     
     def __repr__(self):
         return f"<Wishlist(id={self.id}, user_id={self.user_id})>"
@@ -65,11 +58,10 @@ class WishlistItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    wishlist_id = Column(Integer, ForeignKey("wishlists.id", ondelete="CASCADE"), nullable=False)
+    wishlist_id = Column(Integer, nullable=False)
     product_id = Column(Integer, nullable=False)
     
-    # Relationships (using string references to avoid circular imports)
-    wishlist = relationship("Wishlist", back_populates="items")
+    # Removed relationships to avoid joins
     
     __table_args__ = (
         # Unique constraint to prevent duplicate products in the same wishlist
@@ -96,8 +88,7 @@ class PromoCode(Base):
     valid_until = Column(DateTime(timezone=True))
     is_active = Column(Boolean, default=True)
     
-    # Relationships (using string references to avoid circular imports)
-    cart_promo_codes = relationship("CartPromoCode", back_populates="promo_code", cascade="all, delete-orphan")
+    # Removed relationships to avoid joins
     
     __table_args__ = (
         CheckConstraint('discount_value > 0', name='check_discount_value_positive'),
@@ -113,13 +104,11 @@ class CartPromoCode(Base):
     __tablename__ = "cart_promo_codes"
     
     id = Column(Integer, primary_key=True, index=True)
-    cart_id = Column(Integer, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
-    promo_code_id = Column(Integer, ForeignKey("promo_codes.id", ondelete="CASCADE"), nullable=False)
+    cart_id = Column(Integer, nullable=False)
+    promo_code_id = Column(Integer, nullable=False)
     applied_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships (using string references to avoid circular imports)
-    cart = relationship("Cart", back_populates="promo_codes")
-    promo_code = relationship("PromoCode", back_populates="cart_promo_codes")
+    # Removed relationships to avoid joins
     
     __table_args__ = (
         # Unique constraint to prevent duplicate promo codes in the same cart

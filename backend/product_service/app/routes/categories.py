@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
 from app.services.category_service import CategoryService
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
-from app.core.security import verify_admin_token
+from app.core.auth_client import AuthClient
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -26,11 +26,14 @@ async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
 async def create_category(
     name: str = Form(...),
     image: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
 ):
     """Create a new product category (Admin only)"""
-    # In a real implementation, you would verify the admin token here
-    # For now, we're just creating the category
+    # Verify admin token
+    is_admin = await AuthClient.verify_admin(session_cookie)
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
     # Create category data
     category_data = {
@@ -59,11 +62,14 @@ async def update_category(
     name: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     is_active: Optional[bool] = Form(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
 ):
     """Update an existing product category (Admin only)"""
-    # In a real implementation, you would verify the admin token here
-    # For now, we're just updating the category
+    # Verify admin token
+    is_admin = await AuthClient.verify_admin(session_cookie)
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
     # Only include non-None values in the update
     update_data = {}

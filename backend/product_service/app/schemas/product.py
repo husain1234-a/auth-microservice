@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from fastapi import UploadFile
-from app.schemas.category import CategoryResponse
 
 class ProductBase(BaseModel):
     name: str
@@ -35,7 +34,6 @@ class ProductResponse(ProductBase):
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
-    category: Optional[CategoryResponse] = None
 
     class Config:
         from_attributes = True
