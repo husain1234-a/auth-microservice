@@ -6,6 +6,7 @@ import time
 from .config import SERVICES, CIRCUIT_BREAKER_CONFIG, RATE_LIMIT_CONFIG, SECURITY_CONFIG
 from .models import CircuitBreakerState, RateLimitState
 from collections import defaultdict
+from typing import Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def check_circuit_breaker(service_name: str) -> bool:
     
     return True  # Circuit closed or half-open
 
-def record_success(service_name: str):
+def record_success(service_name: str) -> None:
     """Record successful request for circuit breaker"""
     state = circuit_breaker_state[service_name]
     state.failure_count = 0
@@ -81,7 +82,7 @@ def record_success(service_name: str):
         state.state = "CLOSED"
         logger.info(f"Circuit breaker for {service_name} closed")
 
-def record_failure(service_name: str):
+def record_failure(service_name: str) -> None:
     """Record failed request for circuit breaker"""
     state = circuit_breaker_state[service_name]
     state.failure_count += 1
