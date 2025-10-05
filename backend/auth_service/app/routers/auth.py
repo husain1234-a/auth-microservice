@@ -7,6 +7,7 @@ from ..database import get_db
 from ..models.user import UserRole
 from config.settings import settings
 from typing import Optional
+import json
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -89,7 +90,11 @@ async def get_current_user(
     decoded_claims = await AuthService.verify_session_cookie(session_cookie)
     uid = decoded_claims.get('uid')
     
-    user = await UserService.get_user_by_uid(db, uid)
+    # Check if uid is present
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    
+    user = await UserService.get_user_by_uid(db, str(uid))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -108,8 +113,12 @@ async def update_phone_number(
     decoded_claims = await AuthService.verify_session_cookie(session_cookie)
     uid = decoded_claims.get('uid')
     
+    # Check if uid is present
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    
     # Update phone number in database
-    user = await UserService.update_user_phone(db, uid, request.phone_number)
+    user = await UserService.update_user_phone(db, str(uid), request.phone_number)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -120,7 +129,9 @@ async def logout(response: Response, session_cookie: Optional[str] = Cookie(None
     if session_cookie:
         try:
             decoded_claims = await AuthService.verify_session_cookie(session_cookie)
-            await AuthService.revoke_refresh_tokens(decoded_claims['uid'])
+            uid = decoded_claims.get('uid')
+            if uid:
+                await AuthService.revoke_refresh_tokens(str(uid))
         except:
             pass  # Continue with logout even if session is invalid
     
@@ -147,8 +158,12 @@ async def update_user_role(
     decoded_claims = await AuthService.verify_session_cookie(session_cookie)
     current_user_uid = decoded_claims.get('uid')
     
+    # Check if uid is present
+    if not current_user_uid:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    
     # Get current user to check permissions
-    current_user = await UserService.get_user_by_uid(db, current_user_uid)
+    current_user = await UserService.get_user_by_uid(db, str(current_user_uid))
     if not current_user:
         raise HTTPException(status_code=404, detail="Current user not found")
     
@@ -176,8 +191,12 @@ async def get_user_by_uid(
     decoded_claims = await AuthService.verify_session_cookie(session_cookie)
     current_user_uid = decoded_claims.get('uid')
     
+    # Check if uid is present
+    if not current_user_uid:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    
     # Get current user to check permissions
-    current_user = await UserService.get_user_by_uid(db, current_user_uid)
+    current_user = await UserService.get_user_by_uid(db, str(current_user_uid))
     if not current_user:
         raise HTTPException(status_code=404, detail="Current user not found")
     
@@ -190,3 +209,11 @@ async def get_user_by_uid(
         raise HTTPException(status_code=404, detail="User not found")
     
     return AuthService.format_user_response(user)
+
+@router.get("/.well-known/jwks.json")
+async def jwks():
+    """
+    Expose public keys for JWT validation.
+    """
+    jwks_data = await AuthService.get_jwks()
+    return jwks_data

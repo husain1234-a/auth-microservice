@@ -15,7 +15,7 @@ SERVICES: Dict[str, Dict[str, Any]] = {
     },
     "cart": {
         "url": os.getenv("CART_SERVICE_URL", "http://localhost:8003"),
-        "prefix": "/cart",
+        "prefix": "/api/v1",
         "health_path": "/health"
     }
 }
@@ -31,4 +31,12 @@ CIRCUIT_BREAKER_CONFIG = {
 RATE_LIMIT_CONFIG = {
     "max_requests": 100,
     "window_seconds": 60
+}
+
+# Security configuration
+SECURITY_CONFIG = {
+    "jwt_cache_duration": 3600,  # 1 hour
+    "allowed_origins": ["*"],  # In production, specify exact origins
+    "rate_limit_enabled": True,
+    "circuit_breaker_enabled": True
 }

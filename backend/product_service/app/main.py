@@ -7,7 +7,8 @@ from app.core.init_db import init_db
 app = FastAPI(
     title=settings.app_name,
     description="Product microservice for managing products and categories",
-    version="1.0.0"
+    version="1.0.0",
+    redirect_slashes=False  # Disable automatic trailing slash redirects
 )
 
 # Add CORS middleware

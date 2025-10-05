@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Cookie, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
 from app.services.category_service import CategoryService
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
-from app.core.auth_client import AuthClient
+from app.core.local_auth import get_current_admin_user_dependency
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -24,16 +24,14 @@ async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=CategoryResponse)
 async def create_category(
+    request: Request,
     name: str = Form(...),
     image: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db),
-    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
+    db: AsyncSession = Depends(get_db)
 ):
     """Create a new product category (Admin only)"""
-    # Verify admin token
-    is_admin = await AuthClient.verify_admin(session_cookie)
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # Verify admin token locally
+    user = await get_current_admin_user_dependency(request)
     
     # Create category data
     category_data = {
@@ -58,18 +56,16 @@ async def create_category(
 
 @router.put("/{category_id}", response_model=CategoryResponse)
 async def update_category(
+    request: Request,
     category_id: int,
     name: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     is_active: Optional[bool] = Form(None),
-    db: AsyncSession = Depends(get_db),
-    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
+    db: AsyncSession = Depends(get_db)
 ):
     """Update an existing product category (Admin only)"""
-    # Verify admin token
-    is_admin = await AuthClient.verify_admin(session_cookie)
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # Verify admin token locally
+    user = await get_current_admin_user_dependency(request)
     
     # Only include non-None values in the update
     update_data = {}

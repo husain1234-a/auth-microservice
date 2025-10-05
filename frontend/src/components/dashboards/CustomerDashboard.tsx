@@ -32,13 +32,12 @@ export default function CustomerDashboard({ user, onLogout }: CustomerDashboardP
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [productsResponse, categoriesResponse] = await Promise.all([
-                    productAPI.getProducts({ limit: 12 }),
-                    productAPI.getCategories({ limit: 20 })
-                ]);
+                // Updated to properly handle the direct array responses from the API
+                const productsResponse = await productAPI.getProducts({ limit: 12 });
+                const categoriesResponse = await productAPI.getCategories({ limit: 20 });
 
-                setProducts(productsResponse.products || productsResponse);
-                setCategories(categoriesResponse.categories || categoriesResponse);
+                setProducts(productsResponse);
+                setCategories(categoriesResponse);
             } catch (error) {
                 console.error('Failed to fetch data:', error);
             } finally {

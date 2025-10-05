@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Cookie, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
 from app.services.product_service import ProductService
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
-from app.core.auth_client import AuthClient
+from app.core.local_auth import get_current_admin_user_dependency
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -30,6 +30,7 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=ProductResponse)
 async def create_product(
+    request: Request,
     name: str = Form(...),
     description: Optional[str] = Form(None),
     price: float = Form(...),
@@ -38,14 +39,11 @@ async def create_product(
     stock_quantity: int = Form(0),
     unit: Optional[str] = Form(None),
     image: UploadFile = File(None),
-    db: AsyncSession = Depends(get_db),
-    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
+    db: AsyncSession = Depends(get_db)
 ):
     """Create a new product (Admin only)"""
-    # Verify admin token
-    is_admin = await AuthClient.verify_admin(session_cookie)
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # Verify admin token locally
+    user = await get_current_admin_user_dependency(request)
     
     # Create a dictionary with only the provided values
     product_data = {
@@ -81,6 +79,7 @@ async def create_product(
 
 @router.put("/{product_id}", response_model=ProductResponse)
 async def update_product(
+    request: Request,
     product_id: int,
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -91,14 +90,11 @@ async def update_product(
     unit: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(None),
     image: UploadFile = File(None),
-    db: AsyncSession = Depends(get_db),
-    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
+    db: AsyncSession = Depends(get_db)
 ):
     """Update an existing product (Admin only)"""
-    # Verify admin token
-    is_admin = await AuthClient.verify_admin(session_cookie)
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # Verify admin token locally
+    user = await get_current_admin_user_dependency(request)
     
     # Only include non-None values in the update
     update_data = {}
@@ -139,15 +135,13 @@ async def update_product(
 
 @router.delete("/{product_id}")
 async def delete_product(
+    request: Request,
     product_id: int, 
-    db: AsyncSession = Depends(get_db),
-    session_cookie: Optional[str] = Cookie(None, alias="auth_session")
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete a product (soft delete - set is_active to false) (Admin only)"""
-    # Verify admin token
-    is_admin = await AuthClient.verify_admin(session_cookie)
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # Verify admin token locally
+    user = await get_current_admin_user_dependency(request)
     
     success = await ProductService.delete_product(db, product_id)
     if not success:

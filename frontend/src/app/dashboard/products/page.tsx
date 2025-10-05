@@ -87,22 +87,40 @@ export default function ProductsPage() {
         e.preventDefault();
 
         try {
-            const productData = {
-                ...formData,
-                price: Math.round(parseFloat(formData.price) * 100) / 100,
-                mrp: formData.mrp ? Math.round(parseFloat(formData.mrp) * 100) / 100 : undefined,
-                category_id: parseInt(formData.category_id),
-                stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : undefined,
-                unit: formData.unit || undefined,
-                image: imageFile || undefined
-            };
+            // Create FormData for file upload
+            const formDataObj = new FormData();
+            formDataObj.append('name', formData.name);
+            formDataObj.append('description', formData.description);
+            formDataObj.append('price', formData.price);
+
+            if (formData.mrp) {
+                formDataObj.append('mrp', formData.mrp);
+            }
+
+            formDataObj.append('category_id', formData.category_id);
+
+            if (formData.stock_quantity) {
+                formDataObj.append('stock_quantity', formData.stock_quantity);
+            }
+
+            if (formData.unit) {
+                formDataObj.append('unit', formData.unit);
+            }
+
+            if (imageFile) {
+                formDataObj.append('image', imageFile);
+            }
 
             if (editingProduct) {
                 // Update existing product
-                await productAPI.updateProduct(editingProduct.id, productData);
+                const updatedProduct = await productAPI.updateProduct(editingProduct.id, formDataObj);
+                // Update the product in the local state
+                setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
             } else {
                 // Create new product
-                await productAPI.createProduct(productData);
+                const newProduct = await productAPI.createProduct(formDataObj);
+                // Add the new product to the local state
+                setProducts([...products, newProduct]);
             }
 
             // Reset form
@@ -118,10 +136,6 @@ export default function ProductsPage() {
             setImageFile(null);
             setShowCreateForm(false);
             setEditingProduct(null);
-
-            // Refresh products list
-            const productsResponse = await productAPI.getProducts();
-            setProducts(productsResponse);
         } catch (err: any) {
             console.error('Error saving product:', err);
             setError('Failed to save product: ' + (err.response?.data?.detail || err.message));
@@ -146,9 +160,8 @@ export default function ProductsPage() {
         if (window.confirm('Are you sure you want to delete this product?')) {
             try {
                 await productAPI.deleteProduct(id);
-                // Refresh products list
-                const productsResponse = await productAPI.getProducts();
-                setProducts(productsResponse);
+                // Remove the product from the local state
+                setProducts(products.filter(p => p.id !== id));
             } catch (err: any) {
                 console.error('Error deleting product:', err);
                 setError('Failed to delete product: ' + (err.response?.data?.detail || err.message));

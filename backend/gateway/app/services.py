@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import time
-from .config import SERVICES, CIRCUIT_BREAKER_CONFIG, RATE_LIMIT_CONFIG
+from .config import SERVICES, CIRCUIT_BREAKER_CONFIG, RATE_LIMIT_CONFIG, SECURITY_CONFIG
 from .models import CircuitBreakerState, RateLimitState
 from collections import defaultdict
 
@@ -20,6 +20,10 @@ rate_limit_storage: Dict[str, RateLimitState] = defaultdict(lambda: RateLimitSta
 
 def is_rate_limited(client_ip: str, service_name: str) -> bool:
     """Check if a client is rate limited for a specific service"""
+    # Check if rate limiting is enabled
+    if not SECURITY_CONFIG.get("rate_limit_enabled", True):
+        return False
+        
     key = f"{client_ip}:{service_name}"
     now = time.time()
     
@@ -50,6 +54,10 @@ def is_rate_limited(client_ip: str, service_name: str) -> bool:
 
 def check_circuit_breaker(service_name: str) -> bool:
     """Check if circuit breaker is open for a service"""
+    # Check if circuit breaker is enabled
+    if not SECURITY_CONFIG.get("circuit_breaker_enabled", True):
+        return True
+        
     state = circuit_breaker_state[service_name]
     now = time.time()
     

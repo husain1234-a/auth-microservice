@@ -4,8 +4,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..schemas.auth import UserResponse
 from ..models.user import User, UserRole
 from .user_service import UserService
+import httpx
+import json
+from typing import Dict, Any, Optional
+from datetime import datetime
 
 class AuthService:
+    # Cache for JWKS
+    _jwks_cache: Optional[Dict[str, Any]] = None
+    _jwks_cache_time: float = 0
+    _jwks_cache_duration: int = 3600  # 1 hour
+    _project_id: Optional[str] = None
+    
     @staticmethod
     async def verify_id_token(id_token: str) -> dict:
         try:
@@ -46,13 +56,17 @@ class AuthService:
         display_name = decoded_token.get('name')
         photo_url = decoded_token.get('picture')
         
+        # Handle potential None values
+        if uid is None:
+            raise HTTPException(status_code=400, detail="UID is required")
+        
         user, created = await UserService.get_or_create_user(
             db=db,
-            uid=uid,
-            email=email,
-            phone_number=phone_number,
-            display_name=display_name,
-            photo_url=photo_url,
+            uid=str(uid),
+            email=str(email) if email is not None else None,
+            phone_number=str(phone_number) if phone_number is not None else None,
+            display_name=str(display_name) if display_name is not None else None,
+            photo_url=str(photo_url) if photo_url is not None else None,
             role=UserRole.CUSTOMER  # Default role for new users
         )
         
@@ -61,13 +75,63 @@ class AuthService:
     @staticmethod
     def format_user_response(user: User) -> UserResponse:
         return UserResponse(
-            uid=user.uid,
-            email=user.email,
-            phone_number=user.phone_number,
-            display_name=user.display_name,
-            photo_url=user.photo_url,
-            role=user.role,
-            is_active=user.is_active,
-            created_at=user.created_at,
-            updated_at=user.updated_at
+            uid=str(user.uid),
+            email=str(user.email) if user.email is not None else None,
+            phone_number=str(user.phone_number) if user.phone_number is not None else None,
+            display_name=str(user.display_name) if user.display_name is not None else None,
+            photo_url=str(user.photo_url) if user.photo_url is not None else None,
+            role=UserRole(user.role),  # Convert to enum
+            is_active=bool(user.is_active),
+            created_at=user.created_at if isinstance(user.created_at, datetime) else datetime.now(),
+            updated_at=user.updated_at if isinstance(user.updated_at, datetime) else datetime.now()
         )
+    
+    @classmethod
+    async def get_jwks(cls) -> Dict[str, Any]:
+        """Fetch Firebase JWKS for token validation"""
+        import time
+        current_time = time.time()
+        
+        # Return cached JWKS if still valid
+        if cls._jwks_cache and (current_time - cls._jwks_cache_time) < cls._jwks_cache_duration:
+            return cls._jwks_cache
+        
+        try:
+            # Get Firebase project ID
+            if not cls._project_id:
+                # In a real implementation, you would get this from Firebase config
+                # For now, we'll use a placeholder
+                cls._project_id = "your-firebase-project-id"
+            
+            # Fetch JWKS from Firebase
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+                )
+                
+                if response.status_code == 200:
+                    keys_data = response.json()
+                    
+                    # Convert to JWKS format
+                    keys = []
+                    for kid, public_key in keys_data.items():
+                        # This is a simplified conversion
+                        # In a real implementation, you would properly parse the public key
+                        keys.append({
+                            "alg": "RS256",
+                            "e": "AQAB",  # Standard exponent
+                            "kid": kid,
+                            "kty": "RSA",
+                            "n": "modulus-placeholder",  # Would extract from public_key
+                            "use": "sig"
+                        })
+                    
+                    jwks = {"keys": keys}
+                    cls._jwks_cache = jwks
+                    cls._jwks_cache_time = current_time
+                    return jwks
+                
+            return {"keys": []}
+        except Exception as e:
+            # Return empty JWKS on error
+            return {"keys": []}

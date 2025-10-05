@@ -3,8 +3,8 @@ from fastapi.responses import JSONResponse
 import httpx
 import logging
 from typing import Dict, Any, Optional
-import time
 from datetime import datetime
+import time
 from .config import SERVICES
 from .services import (
     http_clients, 
@@ -35,6 +35,23 @@ async def health_check():
         "services": service_status
     }
 
+@router.get("/test")
+async def test_endpoint():
+    """Simple test endpoint to verify gateway is working"""
+    return {"message": "Gateway is working", "timestamp": datetime.utcnow().isoformat()}
+
+@router.api_route("/debug/headers", methods=["GET", "POST", "OPTIONS"])
+async def debug_headers(request: Request):
+    """Debug endpoint to check what headers are being received"""
+    return {
+        "method": request.method,
+        "url": str(request.url),
+        "headers": dict(request.headers),
+        "has_auth": "Authorization" in request.headers,
+        "has_token_state": hasattr(request.state, 'token'),
+        "token_preview": getattr(request.state, 'token', 'None')[:20] + "..." if hasattr(request.state, 'token') else None
+    }
+
 @router.get("/gateway/stats")
 async def gateway_stats():
     """Gateway statistics endpoint"""
@@ -44,6 +61,51 @@ async def gateway_stats():
         "timestamp": datetime.utcnow().isoformat(),
         "message": "Gateway statistics endpoint - implementation pending"
     }
+
+@router.api_route("/auth/{path:path}", methods=["OPTIONS"])
+async def auth_cors_handler(request: Request, path: str):
+    """Handle CORS preflight requests for auth service"""
+    logger.info(f"Handling CORS preflight for auth service: {path}")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+        }
+    )
+
+@router.api_route("/api/{path:path}", methods=["OPTIONS"])
+async def api_cors_handler(request: Request, path: str):
+    """Handle CORS preflight requests for product/api service"""
+    logger.info(f"Handling CORS preflight for API service: {path}")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+        }
+    )
+
+@router.api_route("/cart/{path:path}", methods=["OPTIONS"])
+async def cart_cors_handler(request: Request, path: str):
+    """Handle CORS preflight requests for cart service"""
+    logger.info(f"Handling CORS preflight for cart service: {path}")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+        }
+    )
 
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def proxy_request(request: Request, path: str):
@@ -58,17 +120,51 @@ async def proxy_request(request: Request, path: str):
     if path == "" or path == "/":
         return await health_check()
     
+    # Handle CORS preflight requests
+    if request.method == "OPTIONS":
+        # For OPTIONS requests, return a simple response with CORS headers
+        return Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "http://localhost:3000",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+                "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+            }
+        )
+    
     # Match the path to a service
     target_service: Optional[str] = None
     service_config: Optional[Dict[str, Any]] = None
     
-    # Match path to service
-    for service_name, config in SERVICES.items():
-        prefix = config["prefix"].lstrip("/")
-        if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
-            target_service = service_name
-            service_config = config
-            break
+    logger.info(f"Routing request for path: '{path}', method: {request.method}, full URL: {request.url}, query params: {request.query_params}")
+    logger.info(f"Request headers: Authorization present: {'Authorization' in request.headers}, has token state: {hasattr(request.state, 'token')}")
+    
+    # Explicit path matching to avoid conflicts (order matters - most specific first)
+    if path.startswith("api/v1/cart") or path.startswith("api/v1/wishlist"):
+        target_service = "cart"
+        service_config = SERVICES["cart"]
+        logger.info(f"Matched cart service for path: {path}")
+    elif path.startswith("api/products") or path.startswith("api/categories"):
+        target_service = "product"
+        service_config = SERVICES["product"]
+        logger.info(f"Matched product service for path: {path}")
+    elif path.startswith("auth"):
+        target_service = "auth"
+        service_config = SERVICES["auth"]
+        logger.info(f"Matched auth service for path: {path}")
+    else:
+        logger.warning(f"No explicit match found for path: {path}, trying generic matching")
+        # Fallback to generic matching
+        for service_name, config in SERVICES.items():
+            prefix = config["prefix"].lstrip("/")
+            logger.info(f"Checking service {service_name} with prefix '{prefix}' against path '{path}'")
+            if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+                target_service = service_name
+                service_config = config
+                logger.info(f"Matched service {service_name} for path: {path}")
+                break
     
     # If no service matches, return 404
     if not target_service or not service_config:
@@ -87,14 +183,31 @@ async def proxy_request(request: Request, path: str):
     
     # Prepare the path for the target service
     service_prefix = service_config["prefix"].lstrip("/")
-    if path.startswith(service_prefix):
-        target_path = path[len(service_prefix):]
-        if not target_path.startswith("/") and target_path:
-            target_path = "/" + target_path
-        elif not target_path:
-            target_path = "/"
+    
+    # Fix path forwarding logic to correctly forward to services
+    if target_service == "product":
+        # For product service, ensure trailing slash for endpoints that need it
+        if path == "api/products" or path == "api/categories":
+            target_path = "/" + path + "/"
+        else:
+            target_path = "/" + path
+    elif target_service == "cart":
+        # For cart service, forward the full path as-is since it expects /api/v1/cart/* or /api/v1/wishlist/*
+        target_path = "/" + path
+    elif target_service == "auth":
+        # For auth service, forward the full path as-is since it expects /auth/*
+        target_path = "/" + path
     else:
-        target_path = "/" + path if not path.startswith("/") else path
+        # For other cases, use the existing logic
+        if path.startswith(service_prefix + "/"):
+            # Remove the service prefix to get the target path
+            target_path = "/" + path
+        elif path == service_prefix:
+            # If path exactly matches prefix, target path should include the prefix
+            target_path = "/" + service_prefix + "/"
+        else:
+            # For other cases, use the path as is with leading slash
+            target_path = "/" + path
     
     # Get the HTTP client for the target service
     client = http_clients[target_service]
@@ -107,6 +220,35 @@ async def proxy_request(request: Request, path: str):
     headers["X-Gateway-Forwarded"] = "true"
     headers["X-Gateway-Timestamp"] = str(datetime.utcnow().isoformat())
     headers["X-Forwarded-For"] = client_ip
+    headers["X-Auth-Source"] = "gateway"
+    
+    # Forward authentication token if present
+    if hasattr(request.state, 'token'):
+        # Forward the token stored by JWT middleware as Authorization header
+        headers["Authorization"] = f"Bearer {request.state.token}"
+        auth_source = getattr(request.state, 'auth_source', 'unknown')
+        logger.info(f"Forwarding {auth_source} token to {target_service} service")
+        
+        # Also forward as session cookie for services that expect it
+        if auth_source == "session":
+            # Keep the original session cookie for services that might need it
+            session_cookie = request.cookies.get("auth_session")
+            if session_cookie:
+                headers["Cookie"] = f"auth_session={session_cookie}"
+                logger.info(f"Also forwarding session cookie to {target_service} service")
+    else:
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            # Forward the original Authorization header directly
+            headers["Authorization"] = auth_header
+            logger.info(f"Forwarding original Authorization header to {target_service} service: {auth_header[:20]}...")
+        else:
+            logger.warning(f"No authentication found for {target_service} service request")
+    
+    # Add security headers
+    headers["X-Content-Type-Options"] = "nosniff"
+    headers["X-Frame-Options"] = "DENY"
+    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     
     try:
         # Forward the request to the target service
@@ -140,11 +282,24 @@ async def proxy_request(request: Request, path: str):
         # Log successful request
         logger.info(f"Successfully forwarded {request.method} {path} to {target_service} in {response_time:.3f}s")
         
+        # Add security headers to response
+        response_headers = dict(response.headers)
+        response_headers["X-Content-Type-Options"] = "nosniff"
+        response_headers["X-Frame-Options"] = "DENY"
+        response_headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        
+        # Ensure CORS headers are present
+        response_headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        response_headers["Access-Control-Allow-Credentials"] = "true"
+        response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response_headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded"
+        
         # Return the response from the target service
         return Response(
             content=response.content,
             status_code=response.status_code,
-            headers=dict(response.headers)
+            headers=response_headers,
+            media_type=response.headers.get("content-type", "application/json")
         )
         
     except httpx.TimeoutException:
@@ -152,16 +307,49 @@ async def proxy_request(request: Request, path: str):
         record_failure(target_service)
         
         logger.error(f"Timeout when calling {target_service} service")
-        raise HTTPException(status_code=504, detail="Gateway timeout")
+        # Create error response with CORS headers
+        error_response = JSONResponse(
+            status_code=504,
+            content={"detail": "Gateway timeout"},
+            headers={
+                "Access-Control-Allow-Origin": "http://localhost:3000",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            }
+        )
+        return error_response
     except httpx.RequestError as e:
         # Record failure for circuit breaker
         record_failure(target_service)
         
         logger.error(f"Network error when calling {target_service} service: {str(e)}")
-        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+        # Create error response with CORS headers
+        error_response = JSONResponse(
+            status_code=503,
+            content={"detail": "Service temporarily unavailable"},
+            headers={
+                "Access-Control-Allow-Origin": "http://localhost:3000",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            }
+        )
+        return error_response
     except Exception as e:
         # Record failure for circuit breaker
         record_failure(target_service)
         
         logger.error(f"Unexpected error when calling {target_service} service: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        # Create error response with CORS headers
+        error_response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+            headers={
+                "Access-Control-Allow-Origin": "http://localhost:3000",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            }
+        )
+        return error_response

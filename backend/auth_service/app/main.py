@@ -30,10 +30,6 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "auth-service"}
-
-@app.get("/health")
-async def health_check():
     return {"status": "healthy"}
 
 if __name__ == "__main__":

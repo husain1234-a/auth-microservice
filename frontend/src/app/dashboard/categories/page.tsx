@@ -19,6 +19,7 @@ export default function CategoriesPage() {
     // Form state
     const [formData, setFormData] = useState({
         name: '',
+        description: '',
     });
     const [imageFile, setImageFile] = useState<File | null>(null);
 
@@ -57,7 +58,7 @@ export default function CategoriesPage() {
         }
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
@@ -75,28 +76,32 @@ export default function CategoriesPage() {
         e.preventDefault();
 
         try {
-            const categoryData = {
-                ...formData,
-                image: imageFile || undefined
-            };
+            // Create FormData for file upload
+            const formDataObj = new FormData();
+            formDataObj.append('name', formData.name);
+            formDataObj.append('description', formData.description);
+
+            if (imageFile) {
+                formDataObj.append('image', imageFile);
+            }
 
             if (editingCategory) {
                 // Update existing category
-                await productAPI.updateCategory(editingCategory.id, categoryData);
+                const updatedCategory = await productAPI.updateCategory(editingCategory.id, formDataObj);
+                // Update the category in the local state
+                setCategories(categories.map(c => c.id === updatedCategory.id ? updatedCategory : c));
             } else {
                 // Create new category
-                await productAPI.createCategory(categoryData);
+                const newCategory = await productAPI.createCategory(formDataObj);
+                // Add the new category to the local state
+                setCategories([...categories, newCategory]);
             }
 
             // Reset form
-            setFormData({ name: '' });
+            setFormData({ name: '', description: '' });
             setImageFile(null);
             setShowCreateForm(false);
             setEditingCategory(null);
-
-            // Refresh categories list
-            const categoriesResponse = await productAPI.getCategories();
-            setCategories(categoriesResponse);
         } catch (err: any) {
             console.error('Error saving category:', err);
             setError('Failed to save category: ' + (err.response?.data?.detail || err.message));
@@ -107,6 +112,7 @@ export default function CategoriesPage() {
         setEditingCategory(category);
         setFormData({
             name: category.name,
+            description: category.description || '',
         });
         setShowCreateForm(true);
     };
@@ -115,10 +121,11 @@ export default function CategoriesPage() {
         if (window.confirm('Are you sure you want to delete this category? This will affect all products in this category.')) {
             try {
                 // We'll implement soft delete by setting is_active to false
-                await productAPI.updateCategory(id, { is_active: false });
-                // Refresh categories list
-                const categoriesResponse = await productAPI.getCategories();
-                setCategories(categoriesResponse);
+                const formDataObj = new FormData();
+                formDataObj.append('is_active', 'false');
+                const updatedCategory = await productAPI.updateCategory(id, formDataObj);
+                // Update the category in the local state
+                setCategories(categories.map(c => c.id === updatedCategory.id ? updatedCategory : c));
             } catch (err: any) {
                 console.error('Error deleting category:', err);
                 setError('Failed to delete category: ' + (err.response?.data?.detail || err.message));
@@ -126,10 +133,26 @@ export default function CategoriesPage() {
         }
     };
 
+    const handleToggleActive = async (id: number) => {
+        try {
+            const category = categories.find(c => c.id === id);
+            if (!category) return;
+
+            const formDataObj = new FormData();
+            formDataObj.append('is_active', (!category.is_active).toString());
+            const updatedCategory = await productAPI.updateCategory(id, formDataObj);
+            // Update the category in the local state
+            setCategories(categories.map(c => c.id === updatedCategory.id ? updatedCategory : c));
+        } catch (err: any) {
+            console.error('Error toggling category status:', err);
+            setError('Failed to update category: ' + (err.response?.data?.detail || err.message));
+        }
+    };
+
     const cancelEdit = () => {
         setEditingCategory(null);
         setShowCreateForm(false);
-        setFormData({ name: '' });
+        setFormData({ name: '', description: '' });
         setImageFile(null);
     };
 
@@ -261,6 +284,19 @@ export default function CategoriesPage() {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Description
+                                    </label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleInputChange}
+                                        rows={3}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Category Image
                                     </label>
                                     <input
@@ -315,6 +351,9 @@ export default function CategoriesPage() {
                                 <tr key={category.id}>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-gray-900">{category.name}</div>
+                                        {category.description && (
+                                            <div className="text-sm text-gray-500">{category.description}</div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {category.image_url ? (
@@ -343,21 +382,14 @@ export default function CategoriesPage() {
                                         >
                                             Edit
                                         </button>
-                                        {category.is_active ? (
-                                            <button
-                                                onClick={() => handleDelete(category.id)}
-                                                className="text-red-600 hover:text-red-900"
-                                            >
-                                                Deactivate
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleDelete(category.id)}
-                                                className="text-green-600 hover:text-green-900"
-                                            >
-                                                Activate
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => handleToggleActive(category.id)}
+                                            className={category.is_active
+                                                ? "text-red-600 hover:text-red-900"
+                                                : "text-green-600 hover:text-green-900"}
+                                        >
+                                            {category.is_active ? 'Deactivate' : 'Activate'}
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

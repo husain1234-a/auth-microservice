@@ -28,13 +28,12 @@ export default function OwnerDashboard({ user, onLogout }: OwnerDashboardProps) 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [productsResponse, categoriesResponse] = await Promise.all([
-                    productAPI.getProducts({ limit: 100 }),
-                    productAPI.getCategories({ limit: 50 })
-                ]);
+                // Updated to properly handle the direct array responses from the API
+                const productsResponse = await productAPI.getProducts({ limit: 100 });
+                const categoriesResponse = await productAPI.getCategories({ limit: 50 });
 
-                setProducts(productsResponse.products || productsResponse);
-                setCategories(categoriesResponse.categories || categoriesResponse);
+                setProducts(productsResponse);
+                setCategories(categoriesResponse);
             } catch (error) {
                 console.error('Failed to fetch data:', error);
             } finally {
