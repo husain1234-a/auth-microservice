@@ -5,10 +5,12 @@ import { getRedirectResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { authAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 import GoogleSignIn from '@/components/GoogleSignIn';
 
 export default function Home() {
   const router = useRouter();
+  const { login } = useUser();
 
   useEffect(() => {
     console.log('🚀 Home page loaded, checking for redirect result...');
@@ -33,6 +35,10 @@ export default function Home() {
           console.log('📡 Sending redirect result to backend...');
           const response = await authAPI.googleLogin(idToken);
           console.log('✅ Backend response for redirect:', response.data);
+
+          // Update UserContext with the logged-in user data
+          console.log('🔄 Updating UserContext with redirect login data...');
+          login(response.data.user);
 
           // Store the Firebase ID token for API calls
           const { authStorage } = await import('@/utils/secureStorage');

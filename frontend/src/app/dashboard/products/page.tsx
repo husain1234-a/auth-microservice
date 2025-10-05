@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productAPI, Product, Category } from '@/lib/productApi';
-import { authAPI } from '@/lib/api';
+import { useUser } from '@/contexts/UserContext';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import R2Image from '@/components/ui/R2Image';
 
 export default function ProductsPage() {
     const router = useRouter();
-    const [user, setUser] = useState<any>(null);
+    const { user, loading: userLoading } = useUser();
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,10 +32,20 @@ export default function ProductsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Get current user
-                const userResponse = await authAPI.getCurrentUser();
-                setUser(userResponse.data);
+                // Check if user is loaded and has admin access
+                if (!user) {
+                    console.log('🔄 No user found, redirecting to login...');
+                    router.push('/');
+                    return;
+                }
 
+                if (!['admin', 'owner'].includes(user.role)) {
+                    console.log('🚫 Insufficient permissions for products page');
+                    router.push('/dashboard');
+                    return;
+                }
+
+                console.log('📦 Fetching products and categories via gateway...');
                 // Fetch products and categories
                 const [productsResponse, categoriesResponse] = await Promise.all([
                     productAPI.getProducts(),
@@ -57,8 +67,11 @@ export default function ProductsPage() {
             }
         };
 
-        fetchData();
-    }, [router]);
+        // Only fetch data when user is loaded
+        if (!userLoading) {
+            fetchData();
+        }
+    }, [user, userLoading, router]);
 
     const handleLogout = async () => {
         try {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { productAPI, Product, Category } from '@/lib/productApi';
 import R2Image from '@/components/ui/R2Image';
 import { useCart } from '@/contexts/CartContext';
@@ -28,9 +28,14 @@ export default function CustomerDashboard({ user, onLogout }: CustomerDashboardP
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
     const { addToCart, addToWishlist, state } = useCart();
+    const hasFetched = useRef(false);
 
     useEffect(() => {
+        // Prevent duplicate API calls in React Strict Mode
+        if (hasFetched.current) return;
+
         const fetchData = async () => {
+            hasFetched.current = true;
             try {
                 // Updated to properly handle the direct array responses from the API
                 const productsResponse = await productAPI.getProducts({ limit: 12 });

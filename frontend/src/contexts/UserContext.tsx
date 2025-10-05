@@ -32,19 +32,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const isSessionValid = SecureStorage.isSessionValid();
 
             if (storedUser && isSessionValid) {
-                console.log('🔄 Using stored user data');
+                console.log('📦 Using cached user data - no API call needed');
                 setUser(storedUser);
                 SecureStorage.updateActivity();
-            } else {
-                console.log('📡 Fetching fresh user data from server');
-                // Fetch fresh user data from server
-                const response = await authAPI.getCurrentUser();
-                const userData = response.data as UserData;
-
-                setUser(userData);
-                SecureStorage.setUser(userData);
-                SecureStorage.updateActivity();
+                setLoading(false);
+                return; // Exit early - no need to call API
             }
+
+            console.log('📡 Fetching user data from gateway (UserContext - single call)');
+            // Only call API if no valid cached data
+            const response = await authAPI.getCurrentUser();
+            const userData = response.data as UserData;
+
+            setUser(userData);
+            SecureStorage.setUser(userData);
+            SecureStorage.updateActivity();
+            console.log('✅ User data loaded and cached:', userData.email);
+
         } catch (error) {
             console.error('❌ Failed to initialize user:', error);
             // Clear any corrupted data

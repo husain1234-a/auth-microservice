@@ -5,9 +5,11 @@ import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase
 import { auth, googleProvider } from '@/lib/firebase';
 import { authAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 
 export default function GoogleSignIn() {
   const router = useRouter();
+  const { login } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usePopup, setUsePopup] = useState(true);
@@ -44,52 +46,16 @@ export default function GoogleSignIn() {
       }
 
       if (result?.user) {
-        console.log('👤 User authenticated:', {
-          uid: result.user.uid,
-          email: result.user.email,
-          displayName: result.user.displayName,
-          phoneNumber: result.user.phoneNumber,
-          photoURL: result.user.photoURL
-        });
-
-        // Log additional user metadata
-        console.log('📋 User metadata:', {
-          creationTime: result.user.metadata.creationTime,
-          lastSignInTime: result.user.metadata.lastSignInTime
-        });
-
-        // Log provider data
-        console.log('🔗 Provider data:', result.user.providerData);
-
-        console.log('🔑 Getting ID token...');
         const idToken = await result.user.getIdToken();
-        console.log('✅ ID token obtained, length:', idToken.length);
-
-        // Decode and log token claims (for debugging - remove in production)
-        try {
-          const tokenPayload = JSON.parse(atob(idToken.split('.')[1]));
-          console.log('🎫 Token claims:', {
-            iss: tokenPayload.iss,
-            aud: tokenPayload.aud,
-            email: tokenPayload.email,
-            phone_number: tokenPayload.phone_number,
-            name: tokenPayload.name,
-            picture: tokenPayload.picture
-          });
-        } catch (e) {
-          console.warn('⚠️ Could not decode token payload');
-        }
-
-        console.log('📡 Sending to backend...');
         const response = await authAPI.googleLogin(idToken);
-        console.log('✅ Backend response:', response.data);
+
+        // Update UserContext with the logged-in user data
+        login(response.data.user);
 
         // Check if user has phone number, if not redirect to phone collection
         if (!response.data.user.phone_number) {
-          console.log('📞 No phone number found, redirecting to phone collection...');
           router.push('/collect-phone');
         } else {
-          console.log('🎯 User has phone number, redirecting to dashboard...');
           router.push('/dashboard');
         }
       }

@@ -1,96 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { authAPI } from '@/lib/api';
-import { userStorage } from '@/utils/secureStorage';
+import { useUser } from '@/contexts/UserContext';
 import CustomerDashboard from '@/components/dashboards/CustomerDashboard';
 import DeliveryDashboard from '@/components/dashboards/DeliveryDashboard';
 import OwnerDashboard from '@/components/dashboards/OwnerDashboard';
 import AdminDashboard from '@/components/dashboards/AdminDashboard';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
-interface User {
-  uid: string;
-  email?: string;
-  phone_number?: string;
-  display_name?: string;
-  photo_url?: string;
-  role: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export default function Dashboard() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, logout } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    console.log('🏠 Dashboard loaded, fetching current user...');
-
-    const fetchUser = async () => {
-      try {
-        // Try to get user from secure storage first
-        const cachedUser = userStorage.getUser();
-        if (cachedUser) {
-          console.log('📦 Using cached user data:', cachedUser);
-          setUser(cachedUser);
-        }
-
-        console.log('📡 Calling /auth/me endpoint...');
-        const response = await authAPI.getCurrentUser();
-        console.log('✅ User data received:', response.data);
-
-        // Store user data securely
-        userStorage.setUser(response.data);
-        setUser(response.data);
-      } catch (error: any) {
-        console.error('❌ Failed to fetch user:', {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data
-        });
-
-        // Clear any cached user data
-        userStorage.removeUser();
-
-        console.log('🔄 Redirecting to login page...');
-        router.push('/');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, [router]);
-
-  const handleLogout = async () => {
-    try {
-      console.log('🚀 Starting logout process...');
-      const response = await authAPI.logout();
-      console.log('✅ Logout successful:', response.data);
-
-      // Clear all secure storage
-      userStorage.removeUser();
-
-      console.log('🔄 Redirecting to login page...');
-      router.push('/');
-    } catch (error: any) {
-      console.error('❌ Logout error:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-
-      // Clear storage even if logout fails
-      userStorage.removeUser();
-
-      // Still redirect even if logout fails
+    // Redirect to login if not authenticated
+    if (!loading && !user) {
       router.push('/');
     }
-  };
+  }, [user, loading, router]);
 
   if (loading) {
     return (
@@ -182,25 +110,23 @@ export default function Dashboard() {
 
   // Role-based dashboard rendering
   const renderDashboard = () => {
-    console.log('🎭 Rendering dashboard for role:', user.role);
-
     switch (user.role.toLowerCase()) {
       case 'customer':
-        return <CustomerDashboard user={user} onLogout={handleLogout} />;
+        return <CustomerDashboard user={user} onLogout={logout} />;
 
       case 'delivery_guy':
-        return <DeliveryDashboard user={user} onLogout={handleLogout} />;
+        return <DeliveryDashboard user={user} onLogout={logout} />;
 
       case 'owner':
-        return <OwnerDashboard user={user} onLogout={handleLogout} />;
+        return <OwnerDashboard user={user} onLogout={logout} />;
 
       case 'admin':
-        return <AdminDashboard user={user} onLogout={handleLogout} />;
+        return <AdminDashboard user={user} onLogout={logout} />;
 
       default:
         console.warn('⚠️ Unknown user role:', user.role);
         // Default to customer dashboard for unknown roles
-        return <CustomerDashboard user={user} onLogout={handleLogout} />;
+        return <CustomerDashboard user={user} onLogout={logout} />;
     }
   };
 

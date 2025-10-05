@@ -2,42 +2,38 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authAPI } from '@/lib/api';
+import { useUser } from '@/contexts/UserContext';
 import PhoneCollection from '@/components/PhoneCollection';
 
 export default function CollectPhonePage() {
-    const [user, setUser] = useState<any>(null);
+    const { user, loading: userLoading } = useUser();
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
-        console.log('📱 Phone collection page loaded...');
+        console.log('📱 Phone collection page loaded - using UserContext...');
 
-        const fetchUser = async () => {
-            try {
-                console.log('📡 Fetching current user...');
-                const response = await authAPI.getCurrentUser();
-                console.log('✅ User data received:', response.data);
+        const checkUser = () => {
+            if (!userLoading) {
+                if (!user) {
+                    console.log('🔄 No user found, redirecting to login...');
+                    router.push('/');
+                    return;
+                }
 
                 // If user already has phone number, redirect to dashboard
-                if (response.data.phone_number) {
+                if (user.phone_number) {
                     console.log('📞 User already has phone number, redirecting to dashboard...');
                     router.push('/dashboard');
                     return;
                 }
 
-                setUser(response.data);
-            } catch (error: any) {
-                console.error('❌ Failed to fetch user:', error);
-                console.log('🔄 Redirecting to login page...');
-                router.push('/');
-            } finally {
                 setLoading(false);
             }
         };
 
-        fetchUser();
-    }, [router]);
+        checkUser();
+    }, [user, userLoading, router]);
 
     const handlePhoneComplete = (phoneNumber: string) => {
         console.log('✅ Phone collection completed:', phoneNumber);
