@@ -22,8 +22,8 @@ SERVICES: Dict[str, Dict[str, Any]] = {
 
 # Circuit breaker configuration
 CIRCUIT_BREAKER_CONFIG = {
-    "failure_threshold": 5,
-    "recovery_timeout": 30,  # seconds
+    "failure_threshold": 20,  # Increased from 5 to handle load spikes
+    "recovery_timeout": 10,   # Reduced from 30s to 10s for faster recovery
     "expected_exception": (TimeoutError, ConnectionError)
 }
 

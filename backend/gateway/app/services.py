@@ -96,9 +96,13 @@ async def initialize_clients():
     for service_name, service_config in SERVICES.items():
         http_clients[service_name] = httpx.AsyncClient(
             base_url=service_config["url"],
-            timeout=30.0,
-            # Add connection pooling
-            limits=httpx.Limits(max_keepalive_connections=5, max_connections=20)
+            timeout=5.0,  # Reduced from 30s to 5s
+            # Increased connection pooling for high load
+            limits=httpx.Limits(
+                max_keepalive_connections=50,  # Increased from 5
+                max_connections=200,           # Increased from 20
+                keepalive_expiry=30.0
+            )
         )
         logger.info(f"Initialized client for {service_name} service at {service_config['url']}")
 
