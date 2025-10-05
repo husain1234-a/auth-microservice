@@ -32,3 +32,9 @@ from app.models.cart import Cart, CartItem, Wishlist, WishlistItem, PromoCode, C
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
+# Initialize database
+async def init_db():
+    """Initialize database tables"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

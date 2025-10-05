@@ -27,3 +27,13 @@ async def get_db():
     """Dependency to get DB session"""
     async with AsyncSessionLocal() as session:
         yield session
+
+# Initialize database
+async def init_db():
+    """Initialize database tables"""
+    # Import all models to ensure they are registered
+    from app.models.product import Product
+    from app.models.category import Category
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
