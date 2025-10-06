@@ -107,6 +107,21 @@ async def cart_cors_handler(request: Request, path: str):
         }
     )
 
+@router.api_route("/orders/{path:path}", methods=["OPTIONS"])
+async def orders_cors_handler(request: Request, path: str):
+    """Handle CORS preflight requests for order service"""
+    logger.info(f"Handling CORS preflight for order service: {path}")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+        }
+    )
+
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def proxy_request(request: Request, path: str):
     """
@@ -146,6 +161,10 @@ async def proxy_request(request: Request, path: str):
         target_service = "cart"
         service_config = SERVICES["cart"]
         logger.info(f"Matched cart service for path: {path}")
+    elif path.startswith("api/v1/orders") or path.startswith("api/v1/templates") or path.startswith("api/v1/analytics"):
+        target_service = "order"
+        service_config = SERVICES["order"]
+        logger.info(f"Matched order service for path: {path}")
     elif path.startswith("api/products") or path.startswith("api/categories"):
         target_service = "product"
         service_config = SERVICES["product"]
@@ -193,6 +212,9 @@ async def proxy_request(request: Request, path: str):
             target_path = "/" + path
     elif target_service == "cart":
         # For cart service, forward the full path as-is since it expects /api/v1/cart/* or /api/v1/wishlist/*
+        target_path = "/" + path
+    elif target_service == "order":
+        # For order service, forward the full path as-is since it expects /api/v1/orders/* etc.
         target_path = "/" + path
     elif target_service == "auth":
         # For auth service, forward the full path as-is since it expects /auth/*
