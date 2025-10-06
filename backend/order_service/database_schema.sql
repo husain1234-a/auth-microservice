@@ -1,50 +1,5 @@
 -- Order Microservice Database Schema
 
--- Users table (provided by auth service)
-CREATE TABLE users (
-    uid varchar(255) NOT NULL,
-    email varchar(255),
-    phone_number varchar(20),
-    display_name varchar(255),
-    photo_url text,
-    role varchar(50) DEFAULT 'customer'::character varying,
-    is_active boolean DEFAULT true,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (uid)
-);
-
--- Categories table (provided by product service)
-CREATE TABLE categories (
-    id SERIAL NOT NULL,
-    name varchar(100) NOT NULL,
-    image_url varchar(500),
-    is_active boolean,
-    created_at timestamp with time zone DEFAULT now(),
-    PRIMARY KEY (id)
-);
-
--- Products table (provided by product service)
-CREATE TABLE products (
-    id SERIAL NOT NULL,
-    name varchar(200) NOT NULL,
-    description text,
-    price double precision NOT NULL,
-    mrp double precision,
-    category_id integer,
-    image_url varchar(500),
-    stock_quantity integer,
-    unit varchar(20),
-    is_active boolean,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    PRIMARY KEY (id),
-    CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES categories (id),
-    CONSTRAINT products_price_check CHECK (price > (0)::double precision),
-    CONSTRAINT products_mrp_check CHECK (mrp > (0)::double precision),
-    CONSTRAINT products_stock_quantity_check CHECK (stock_quantity >= 0)
-);
-
 -- Orders table
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
@@ -61,8 +16,7 @@ CREATE TABLE orders (
     cancelled_at TIMESTAMP WITH TIME ZONE,
     scheduled_for TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (uid) ON DELETE CASCADE
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for orders table
@@ -75,7 +29,7 @@ CREATE INDEX idx_order_created_at ON orders (created_at);
 -- Order Items table
 CREATE TABLE order_items (
     id SERIAL PRIMARY KEY,
-    order_id INTEGER NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+    order_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
     quantity INTEGER CHECK (quantity > 0) NOT NULL,
     price DECIMAL(10, 2) CHECK (price > 0) NOT NULL,
@@ -92,14 +46,13 @@ CREATE TABLE order_templates (
     name VARCHAR(100),
     items JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT order_templates_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (uid) ON DELETE CASCADE
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Order Feedback table
 CREATE TABLE order_feedback (
     id SERIAL PRIMARY KEY,
-    order_id INTEGER NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+    order_id INTEGER NOT NULL,
     rating INTEGER CHECK (
         rating >= 1
         AND rating <= 5
