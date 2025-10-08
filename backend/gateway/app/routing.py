@@ -244,6 +244,9 @@ async def proxy_request(request: Request, path: str):
     headers["X-Forwarded-For"] = client_ip
     headers["X-Auth-Source"] = "gateway"
     
+    # Prepare cookies for forwarding
+    cookies_to_forward = {}
+    
     # Forward authentication token if present
     if hasattr(request.state, 'token'):
         # Forward the token stored by JWT middleware as Authorization header
@@ -256,7 +259,7 @@ async def proxy_request(request: Request, path: str):
             # Keep the original session cookie for services that might need it
             session_cookie = request.cookies.get("auth_session")
             if session_cookie:
-                headers["Cookie"] = f"auth_session={session_cookie}"
+                cookies_to_forward["auth_session"] = session_cookie
                 logger.info(f"Also forwarding session cookie to {target_service} service")
     else:
         auth_header = request.headers.get("Authorization")
@@ -281,17 +284,17 @@ async def proxy_request(request: Request, path: str):
             request_body = await request.body()
         
         if request.method == "GET":
-            response = await client.get(target_path, headers=headers)
+            response = await client.get(target_path, headers=headers, cookies=cookies_to_forward)
         elif request.method == "POST":
-            response = await client.post(target_path, headers=headers, content=request_body)
+            response = await client.post(target_path, headers=headers, content=request_body, cookies=cookies_to_forward)
         elif request.method == "PUT":
-            response = await client.put(target_path, headers=headers, content=request_body)
+            response = await client.put(target_path, headers=headers, content=request_body, cookies=cookies_to_forward)
         elif request.method == "DELETE":
-            response = await client.delete(target_path, headers=headers)
+            response = await client.delete(target_path, headers=headers, cookies=cookies_to_forward)
         elif request.method == "PATCH":
-            response = await client.patch(target_path, headers=headers, content=request_body)
+            response = await client.patch(target_path, headers=headers, content=request_body, cookies=cookies_to_forward)
         elif request.method == "OPTIONS":
-            response = await client.options(target_path, headers=headers)
+            response = await client.options(target_path, headers=headers, cookies=cookies_to_forward)
         else:
             raise HTTPException(status_code=405, detail="Method not allowed")
         

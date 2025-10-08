@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     payment_service_url: str = "http://localhost:8005"  # Placeholder for payment service
     notification_service_url: str = "http://localhost:8006"  # Placeholder for notification service
     
+    # Gateway URL for service-to-service communication
+    gateway_url: str = "http://localhost:8000"
+    
     # Redis for async tasks
     redis_url: str = "redis://localhost:6379/0"
     

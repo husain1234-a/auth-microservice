@@ -24,11 +24,11 @@ class OrderService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_order_from_cart(self, user_id: str, order_data: OrderCreate) -> Order:
+    async def create_order_from_cart(self, user_id: str, order_data: OrderCreate, auth_headers: Optional[Dict[str, str]] = None) -> Order:
         """Create a new order from the user's cart"""
         try:
             # Get cart items
-            cart_items = await CartService.get_cart_items(user_id)
+            cart_items = await CartService.get_cart_items(user_id, auth_headers)
             if not cart_items:
                 raise ValueError("Cart is empty")
             
@@ -88,7 +88,7 @@ class OrderService:
                 self.db.add(db_item)
             
             # Clear cart
-            await CartService.clear_cart(user_id)
+            await CartService.clear_cart(user_id, auth_headers)
             
             # Send confirmation notification
             order_id_value = db_order.__dict__.get('id', db_order.id)

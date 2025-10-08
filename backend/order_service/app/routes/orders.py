@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from app.core.database import get_db
 from app.core.security import (
@@ -24,13 +24,36 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 @router.post("/", response_model=OrderResponse)
 async def create_order(
     order_data: OrderCreate,
-    user: dict = Depends(get_current_user_dependency),
+    request: Request,
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new order from the user's cart"""
     try:
         order_service = OrderService(db)
-        db_order = await order_service.create_order_from_cart(user["uid"], order_data)
+        
+        # Extract authentication headers from the request that the gateway forwarded
+        auth_headers = {}
+        
+        # Get the Authorization header that the gateway forwarded
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            auth_headers["Authorization"] = auth_header
+        
+        # Get the Cookie header that the gateway forwarded
+        cookie_header = request.headers.get("Cookie")
+        if cookie_header:
+            auth_headers["Cookie"] = cookie_header
+        
+        # Also check for original cookies from the request object
+        if hasattr(request, 'cookies') and request.cookies:
+            session_cookie = request.cookies.get("auth_session")
+            if session_cookie:
+                # If we don't have a Cookie header but have cookies, create one
+                if "Cookie" not in auth_headers:
+                    auth_headers["Cookie"] = f"auth_session={session_cookie}"
+        
+        db_order = await order_service.create_order_from_cart(user_id, order_data, auth_headers)
         return db_order
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -41,13 +64,13 @@ async def create_order(
 async def get_my_orders(
     limit: int = 20,
     offset: int = 0,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve the current user's order history"""
     try:
         order_service = OrderService(db)
-        orders = await order_service.get_user_orders(user["uid"], limit, offset)
+        orders = await order_service.get_user_orders(user_id, limit, offset)
         return orders
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -55,13 +78,13 @@ async def get_my_orders(
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: int,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve a specific order by its ID"""
     try:
         order_service = OrderService(db)
-        db_order = await order_service.get_order_by_id(order_id, user["uid"])
+        db_order = await order_service.get_order_by_id(order_id, user_id)
         if not db_order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
         return db_order
@@ -89,17 +112,17 @@ async def update_order_status(
 
 @router.get("/", response_model=List[OrderResponse])
 async def get_all_orders(
-    user_id: str = None,
-    status: str = None,
+    user_id: Optional[str] = None,
+    order_status: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
-    user: dict = Depends(get_current_admin_user_dependency),
+    admin_user: dict = Depends(get_current_admin_user_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve all orders with optional filtering (Admin Only)"""
     try:
         order_service = OrderService(db)
-        orders = await order_service.get_admin_orders(user_id, status, limit, offset)
+        orders = await order_service.get_admin_orders(user_id, order_status, limit, offset)
         return orders
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -124,13 +147,13 @@ async def assign_delivery_partner(
 @router.post("/{order_id}/cancel", response_model=OrderCancelResponse)
 async def cancel_order(
     order_id: int,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Cancel an order if eligible"""
     try:
         order_service = OrderService(db)
-        result = await order_service.cancel_order(order_id, user["uid"])
+        result = await order_service.cancel_order(order_id, user_id)
         return result
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -141,13 +164,13 @@ async def cancel_order(
 async def update_order_items(
     order_id: int,
     items_update: OrderItemsUpdate,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Update items in an order if eligible"""
     try:
         order_service = OrderService(db)
-        db_order = await order_service.update_order_items(order_id, user["uid"], items_update)
+        db_order = await order_service.update_order_items(order_id, user_id, items_update)
         if not db_order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
         return db_order
@@ -187,14 +210,14 @@ async def bulk_assign_delivery_partner(
 @router.get("/export")
 async def export_orders(
     format: str = "json",
-    status: str = None,
+    order_status: Optional[str] = None,
     user: dict = Depends(get_current_admin_user_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Export orders in specified format (Admin Only)"""
     try:
         order_service = OrderService(db)
-        orders = await order_service.get_admin_orders(status=status)
+        orders = await order_service.get_admin_orders(status=order_status)
         
         if format.lower() == "csv":
             # Convert to CSV format
@@ -235,7 +258,8 @@ async def export_orders(
 @router.post("/scheduled", response_model=OrderResponse)
 async def create_scheduled_order(
     order_data: OrderCreate,
-    user: dict = Depends(get_current_user_dependency),
+    request: Request,
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a scheduled order for future delivery"""
@@ -247,7 +271,29 @@ async def create_scheduled_order(
             )
         
         order_service = OrderService(db)
-        db_order = await order_service.create_order_from_cart(user["uid"], order_data)
+        
+        # Extract authentication headers from the request that the gateway forwarded
+        auth_headers = {}
+        
+        # Get the Authorization header that the gateway forwarded
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            auth_headers["Authorization"] = auth_header
+        
+        # Get the Cookie header that the gateway forwarded
+        cookie_header = request.headers.get("Cookie")
+        if cookie_header:
+            auth_headers["Cookie"] = cookie_header
+        
+        # Also check for original cookies from the request object
+        if hasattr(request, 'cookies') and request.cookies:
+            session_cookie = request.cookies.get("auth_session")
+            if session_cookie:
+                # If we don't have a Cookie header but have cookies, create one
+                if "Cookie" not in auth_headers:
+                    auth_headers["Cookie"] = f"auth_session={session_cookie}"
+        
+        db_order = await order_service.create_order_from_cart(user_id, order_data, auth_headers)
         return db_order
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -257,25 +303,25 @@ async def create_scheduled_order(
 @router.post("/{order_id}/request-return", response_model=OrderResponse)
 async def request_order_return(
     order_id: int,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Request return for a delivered order"""
     try:
         order_service = OrderService(db)
-        db_order = await order_service.get_order_by_id(order_id, user["uid"])
+        db_order = await order_service.get_order_by_id(order_id, user_id)
         if not db_order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
         
         # Check if order is delivered
-        if db_order.status != OrderStatus.DELIVERED:
+        if getattr(db_order, 'status', None) != OrderStatus.DELIVERED.value:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, 
                 detail="Return can only be requested for delivered orders"
             )
         
         # Update order status to return requested
-        db_order.status = OrderStatus.RETURN_REQUESTED
+        setattr(db_order, 'status', OrderStatus.RETURN_REQUESTED.value)
         await db.commit()
         await db.refresh(db_order)
         
@@ -288,7 +334,7 @@ async def request_order_return(
 @router.get("/tracking-stream/{order_id}")
 async def get_order_tracking_stream(
     order_id: int,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Get real-time tracking stream for an order"""
@@ -302,7 +348,7 @@ async def get_order_tracking_stream(
 @router.get("/delivery-location/{order_id}")
 async def get_delivery_location(
     order_id: int,
-    user: dict = Depends(get_current_user_dependency),
+    user_id: str = Depends(get_current_user_id_dependency),
     db: AsyncSession = Depends(get_db)
 ):
     """Get current delivery location for an order"""
