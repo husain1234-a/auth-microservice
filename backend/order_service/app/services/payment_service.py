@@ -12,7 +12,7 @@ class PaymentService:
     @staticmethod
     async def process_payment(user_id: str, order_id: int, amount: float) -> Dict[str, Any]:
         """Process payment for an order"""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # 5 second timeout
             try:
                 payment_data = {
                     "user_id": user_id,
@@ -48,7 +48,7 @@ class PaymentService:
     @staticmethod
     async def initiate_refund(user_id: str, order_id: int, amount: float) -> Dict[str, Any]:
         """Initiate refund for a cancelled order"""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # 5 second timeout
             try:
                 refund_data = {
                     "user_id": user_id,
@@ -64,19 +64,11 @@ class PaymentService:
                     return response.json()
                 else:
                     logger.error(f"Failed to initiate refund for order {order_id}: {response.status_code}")
-                    raise HTTPException(
-                        status_code=response.status_code,
-                        detail="Refund initiation failed"
-                    )
+                    return {"success": False, "error": "Refund initiation failed"}
             except httpx.RequestError as e:
                 logger.error(f"Network error when calling payment service: {str(e)}")
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Payment service unavailable"
-                )
+                return {"success": False, "error": "Payment service unavailable"}
             except Exception as e:
                 logger.error(f"Unexpected error when calling payment service: {str(e)}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Internal server error"
-                )
+                return {"success": False, "error": "Internal server error"}
+                

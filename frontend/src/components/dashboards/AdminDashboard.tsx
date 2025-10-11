@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { productAPI, Product, Category } from '@/lib/productApi';
+import { orderAPI } from '@/lib/orderApi';
+import { Order, OrderStatus } from '@/types/order';
 import Link from 'next/link';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import R2Image from '@/components/ui/R2Image';
@@ -23,6 +25,8 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -32,10 +36,24 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 const productsResponse = await productAPI.getProducts({ limit: 10 });
                 const categoriesResponse = await productAPI.getCategories({ limit: 10 });
 
+                // Fetch orders for admin overview
+                const ordersResponse = await orderAPI.getAllOrders({ limit: 10 });
+                const allOrders = Array.isArray(ordersResponse) ? ordersResponse : ordersResponse.orders || [];
+
+                // Filter pending orders that need admin approval
+                const pending = allOrders.filter(order => order.status === OrderStatus.PENDING);
+
                 setProducts(productsResponse);
                 setCategories(categoriesResponse);
+                setOrders(allOrders);
+                setPendingOrders(pending);
             } catch (error) {
                 console.error('Failed to fetch data:', error);
+                // Set empty arrays as fallback to prevent rendering errors
+                setProducts([]);
+                setCategories([]);
+                setOrders([]);
+                setPendingOrders([]);
             } finally {
                 setLoading(false);
             }
@@ -63,8 +81,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
 
                 <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
                     {/* Stats Overview Skeleton */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                        {[...Array(4)].map((_, i) => (
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                        {[...Array(5)].map((_, i) => (
                             <div key={i} className="bg-white overflow-hidden shadow rounded-lg">
                                 <div className="p-5">
                                     <div className="flex items-center">
@@ -82,8 +100,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     </div>
 
                     {/* Management Cards Skeleton */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        {[...Array(3)].map((_, i) => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {[...Array(4)].map((_, i) => (
                             <div key={i} className="bg-white overflow-hidden shadow rounded-lg">
                                 <div className="px-4 py-5 sm:p-6">
                                     <SkeletonLoader type="text" className="h-5 w-3/4 mb-4" />
@@ -95,8 +113,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     </div>
 
                     {/* System Overview Skeleton */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        {[...Array(2)].map((_, i) => (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        {[...Array(3)].map((_, i) => (
                             <div key={i} className="bg-white shadow overflow-hidden sm:rounded-lg">
                                 <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
                                     <div>
@@ -156,6 +174,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     const activeProducts = products.filter(p => p.is_active).length;
     const lowStockProducts = products.filter(p => p.stock_quantity < 10).length;
     const totalCategories = categories.length;
+    const totalOrders = orders.length;
+    const pendingOrdersCount = pendingOrders.length;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -186,7 +206,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
 
             <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
                 {/* Stats Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                     <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="p-5">
                             <div className="flex items-center">
@@ -245,14 +265,34 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                         <div className="p-5">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                                        <span className="text-white font-bold">👥</span>
+                                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white font-bold">🛒</span>
                                     </div>
                                 </div>
                                 <div className="ml-5 w-0 flex-1">
                                     <dl>
-                                        <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                                        <dd className="text-lg font-medium text-gray-900">--</dd>
+                                        <dt className="text-sm font-medium text-gray-500 truncate">Total Orders</dt>
+                                        <dd className="text-lg font-medium text-gray-900">{totalOrders}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="p-5">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <div className={`w-8 h-8 ${pendingOrdersCount > 0 ? 'bg-red-500' : 'bg-gray-400'} rounded-full flex items-center justify-center`}>
+                                        <span className="text-white font-bold">⏳</span>
+                                    </div>
+                                </div>
+                                <div className="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt className="text-sm font-medium text-gray-500 truncate">Pending Approval</dt>
+                                        <dd className={`text-lg font-medium ${pendingOrdersCount > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                            {pendingOrdersCount}
+                                        </dd>
                                     </dl>
                                 </div>
                             </div>
@@ -261,7 +301,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 </div>
 
                 {/* Management Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {/* Products Card */}
                     <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
@@ -294,6 +334,29 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                         </div>
                     </div>
 
+                    {/* Order Management Card */}
+                    <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-lg font-medium text-gray-900">Order Management</h3>
+                                {pendingOrdersCount > 0 && (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        {pendingOrdersCount} pending
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-gray-500 mb-4">
+                                Approve, reject, and manage customer orders.
+                            </p>
+                            <Link
+                                href="/admin/orders"
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                            >
+                                Manage Orders
+                            </Link>
+                        </div>
+                    </div>
+
                     {/* User Management Card */}
                     <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
@@ -312,7 +375,55 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 </div>
 
                 {/* System Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    {/* Pending Orders - Priority Section */}
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-lg leading-6 font-medium text-gray-900">Orders Pending Approval</h3>
+                                <p className="mt-1 max-w-2xl text-sm text-gray-500">Orders waiting for admin approval.</p>
+                            </div>
+                            <Link
+                                href="/admin/orders"
+                                className="text-orange-600 hover:text-orange-900 text-sm font-medium"
+                            >
+                                View All
+                            </Link>
+                        </div>
+                        <div className="border-t border-gray-200">
+                            {pendingOrders.length === 0 ? (
+                                <div className="px-4 py-8 text-center">
+                                    <p className="text-gray-500">No orders pending approval</p>
+                                </div>
+                            ) : (
+                                <ul className="divide-y divide-gray-200">
+                                    {pendingOrders.slice(0, 5).map((order) => (
+                                        <li key={order.id} className="px-4 py-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900">
+                                                        Order #{order.id}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
+                                                        ₹{order.total_amount} • {order.items.length} items
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {new Date(order.created_at).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                        Pending
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Recent Products */}
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                         <div className="px-4 py-5 sm:px-6 flex justify-between items-center">

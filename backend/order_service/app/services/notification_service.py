@@ -12,7 +12,7 @@ class NotificationService:
     @staticmethod
     async def send_order_notification(user_id: str, order_id: int, status: str) -> bool:
         """Send order status notification to user"""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # 5 second timeout
             try:
                 notification_data = {
                     "user_id": user_id,

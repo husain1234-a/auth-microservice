@@ -99,6 +99,23 @@ class OrderTemplateResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
+    @classmethod
+    def from_db_model(cls, db_template):
+        """Create from database model, handling JSON conversion"""
+        import json
+        items_data = db_template.items
+        if isinstance(items_data, str):
+            items_data = json.loads(items_data)
+        
+        return cls(
+            id=db_template.id,
+            user_id=db_template.user_id,
+            name=db_template.name,
+            items=items_data,
+            created_at=db_template.created_at,
+            updated_at=db_template.updated_at
+        )
+    
     class Config:
         from_attributes = True
 

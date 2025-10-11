@@ -179,18 +179,69 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
             )
         return payload
 
+async def get_user_role_from_auth_service(request: Request) -> Optional[str]:
+    """Fetch user role from auth service using session cookie"""
+    try:
+        # Get session cookie from request
+        session_cookie = None
+        cookie_header = request.headers.get("Cookie")
+        if cookie_header:
+            # Parse cookies to find the session cookie
+            cookies = {}
+            for cookie in cookie_header.split(';'):
+                if '=' in cookie:
+                    key, value = cookie.strip().split('=', 1)
+                    cookies[key] = value
+            session_cookie = cookies.get("auth_session")
+        
+        if not session_cookie:
+            logger.error("No session cookie found in request")
+            return None
+        
+        async with httpx.AsyncClient() as client:
+            # Forward the session cookie to the auth service
+            response = await client.get(
+                f"{settings.user_service_url}/auth/me",
+                cookies={"auth_session": session_cookie}
+            )
+            if response.status_code == 200:
+                user_data = response.json()
+                return user_data.get("role")
+            else:
+                logger.error(f"Auth service returned status {response.status_code}: {response.text}")
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching user role: {str(e)}")
+        return None
+
 async def get_current_admin_user(request: Request) -> Dict[str, Any]:
     """Get current admin user from request headers with dual-mode support"""
     user = await get_current_user(request)
     
-    # Check if user has admin role
+    # Get user ID from token
+    user_id = user.get("uid") or user.get("user_id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: No user ID in payload"
+        )
+    
+    # Check if role is already in token (for local JWT tokens)
     role = user.get("role")
+    
+    # If no role in token, fetch from auth service (for Firebase session tokens)
+    if not role:
+        role = await get_user_role_from_auth_service(request)
+    
+    # Check if user has admin role
     if role not in ["admin", "owner"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
     
+    # Add role to user data for consistency
+    user["role"] = role
     return user
 
 async def get_current_user_id(request: Request) -> str:
@@ -210,14 +261,30 @@ async def get_current_delivery_partner(request: Request) -> Dict[str, Any]:
     """Get current delivery partner from request headers with dual-mode support"""
     user = await get_current_user(request)
     
-    # Check if user has delivery partner role
+    # Get user ID from token
+    user_id = user.get("uid") or user.get("user_id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: No user ID in payload"
+        )
+    
+    # Check if role is already in token (for local JWT tokens)
     role = user.get("role")
-    if role != "delivery_partner":
+    
+    # If no role in token, fetch from auth service (for Firebase session tokens)
+    if not role:
+        role = await get_user_role_from_auth_service(request)
+    
+    # Check if user has delivery partner role (note: the enum uses "delivery_guy")
+    if role not in ["delivery_partner", "delivery_guy"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Delivery partner access required"
         )
     
+    # Add role to user data for consistency
+    user["role"] = role
     return user
 
 # Dependency functions for FastAPI

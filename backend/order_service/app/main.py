@@ -21,7 +21,8 @@ app = FastAPI(
     debug=settings.debug,
     openapi_url="/openapi.json",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    redirect_slashes=False
 )
 
 # Add CORS middleware
@@ -46,6 +47,13 @@ async def startup_event():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")
+        
+        # Debug: Print all registered routes
+        logger.info("=== Registered Routes ===")
+        for route in app.routes:
+            if hasattr(route, 'path') and hasattr(route, 'methods'):
+                logger.info(f"{route.methods} {route.path}")
+        
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
 
@@ -63,6 +71,15 @@ async def shutdown_event():
 async def root():
     """Root endpoint"""
     return {"message": "Welcome to the Order Microservice", "service": "order-service"}
+
+@app.get("/debug/routes")
+async def debug_routes():
+    """Debug endpoint to show all routes"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            routes.append({"methods": list(route.methods), "path": route.path})
+    return {"routes": routes}
 
 if __name__ == "__main__":
     uvicorn.run(

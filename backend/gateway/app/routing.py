@@ -283,18 +283,23 @@ async def proxy_request(request: Request, path: str):
         if request.method in ["POST", "PUT", "PATCH"]:
             request_body = await request.body()
         
+        # Prepare query parameters
+        query_params = dict(request.query_params) if request.query_params else None
+        if query_params:
+            logger.info(f"Forwarding query parameters: {query_params}")
+        
         if request.method == "GET":
-            response = await client.get(target_path, headers=headers, cookies=cookies_to_forward)
+            response = await client.get(target_path, headers=headers, cookies=cookies_to_forward, params=query_params)
         elif request.method == "POST":
-            response = await client.post(target_path, headers=headers, content=request_body, cookies=cookies_to_forward)
+            response = await client.post(target_path, headers=headers, content=request_body, cookies=cookies_to_forward, params=query_params)
         elif request.method == "PUT":
-            response = await client.put(target_path, headers=headers, content=request_body, cookies=cookies_to_forward)
+            response = await client.put(target_path, headers=headers, content=request_body, cookies=cookies_to_forward, params=query_params)
         elif request.method == "DELETE":
-            response = await client.delete(target_path, headers=headers, cookies=cookies_to_forward)
+            response = await client.delete(target_path, headers=headers, cookies=cookies_to_forward, params=query_params)
         elif request.method == "PATCH":
-            response = await client.patch(target_path, headers=headers, content=request_body, cookies=cookies_to_forward)
+            response = await client.patch(target_path, headers=headers, content=request_body, cookies=cookies_to_forward, params=query_params)
         elif request.method == "OPTIONS":
-            response = await client.options(target_path, headers=headers, cookies=cookies_to_forward)
+            response = await client.options(target_path, headers=headers, cookies=cookies_to_forward, params=query_params)
         else:
             raise HTTPException(status_code=405, detail="Method not allowed")
         

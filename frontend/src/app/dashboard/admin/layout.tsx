@@ -1,9 +1,7 @@
-'use client';
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export default function DashboardLayout({
+export default function AdminDashboardLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -11,12 +9,9 @@ export default function DashboardLayout({
     const pathname = usePathname();
 
     const navItems = [
-        { name: 'Dashboard', href: '/dashboard' },
-        { name: 'Products', href: '/dashboard/products' },
-        { name: 'Categories', href: '/dashboard/categories' },
-        { name: 'Cart', href: '/dashboard/cart' },
-        { name: 'Wishlist', href: '/dashboard/wishlist' },
-        { name: 'Orders', href: '/dashboard/orders' },
+        { name: 'Dashboard', href: '/dashboard/admin' },
+        { name: 'Orders', href: '/dashboard/admin/orders/list' },
+        { name: 'Analytics', href: '/admin/analytics' },
     ];
 
     return (
@@ -27,14 +22,14 @@ export default function DashboardLayout({
                     <div className="flex justify-between h-16">
                         <div className="flex">
                             <div className="flex-shrink-0 flex items-center">
-                                <span className="text-xl font-bold text-gray-900">Admin Panel</span>
+                                <span className="text-xl font-bold text-gray-900">Admin Dashboard</span>
                             </div>
                             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                                 {navItems.map((item) => (
                                     <Link
                                         key={item.name}
                                         href={item.href}
-                                        className={`${pathname === item.href
+                                        className={`${pathname === item.href || pathname.startsWith(item.href)
                                             ? 'border-blue-500 text-gray-900'
                                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                             } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}

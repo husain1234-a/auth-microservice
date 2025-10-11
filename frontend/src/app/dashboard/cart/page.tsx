@@ -35,10 +35,8 @@ export default function CartPage() {
     };
 
     const handleCheckout = () => {
-        // For now, just clear the cart and show a message
-        alert('Checkout functionality would be implemented here!');
-        clearCart();
-        router.push('/dashboard');
+        // Redirect to order creation page
+        router.push('/orders/create');
     };
 
     // Show skeleton loader while cart is loading

@@ -3,6 +3,7 @@ import './globals.css';
 import './skeleton.css';
 import { CartProvider } from '@/contexts/CartContext';
 import { UserProvider } from '@/contexts/UserContext';
+import { OrderProvider } from '@/contexts/OrderContext';
 
 export const metadata: Metadata = {
   title: 'Product Management System',
@@ -19,7 +20,9 @@ export default function RootLayout({
       <body suppressHydrationWarning={true} className="min-h-screen bg-gray-50">
         <UserProvider>
           <CartProvider>
-            {children}
+            <OrderProvider>
+              {children}
+            </OrderProvider>
           </CartProvider>
         </UserProvider>
       </body>

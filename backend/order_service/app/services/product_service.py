@@ -12,7 +12,7 @@ class ProductService:
     @staticmethod
     async def get_product(product_id: int) -> Optional[Dict[str, Any]]:
         """Retrieve product details from the Product service"""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # 5 second timeout
             try:
                 response = await client.get(
                     f"{settings.product_service_url}/api/products/{product_id}",
