@@ -92,7 +92,7 @@ async def api_cors_handler(request: Request, path: str):
         }
     )
 
-@router.api_route("/cart/{path:path}", methods=["OPTIONS"])
+@router.api_route("/api/v1/cart/{path:path}", methods=["OPTIONS"])
 async def cart_cors_handler(request: Request, path: str):
     """Handle CORS preflight requests for cart service"""
     logger.info(f"Handling CORS preflight for cart service: {path}")
@@ -107,7 +107,22 @@ async def cart_cors_handler(request: Request, path: str):
         }
     )
 
-@router.api_route("/orders/{path:path}", methods=["OPTIONS"])
+@router.api_route("/api/v1/wishlist/{path:path}", methods=["OPTIONS"])
+async def wishlist_cors_handler(request: Request, path: str):
+    """Handle CORS preflight requests for wishlist endpoints"""
+    logger.info(f"Handling CORS preflight for wishlist service: {path}")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With, Accept, X-Gateway-Forwarded",
+            "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+        }
+    )
+
+@router.api_route("/api/v1/orders/{path:path}", methods=["OPTIONS"])
 async def orders_cors_handler(request: Request, path: str):
     """Handle CORS preflight requests for order service"""
     logger.info(f"Handling CORS preflight for order service: {path}")
